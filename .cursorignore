@@ -1,1 +1,61 @@
 # Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+*.env
+my_config.env
+
+# Application properties with sensitive data
+backend/src/main/resources/application.properties
+backend/src/main/resources/application-*.properties
+!backend/src/main/resources/application.properties.example
+!backend/src/main/resources/application.properties.production
+
+# Python config with API keys
+src/core/config.py
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+chroma_db/
+
+# Certificates and keys
+*.pem
+*.key
+*.cert
+backend/certificates/
+
+# Logs (may contain sensitive data)
+*.log
+logs/
+backend/logs/
+
+# Upload directories (may contain user data)
+backend/uploads/
+frontend/public/uploads/
+
+# Node modules (large, not needed for indexing)
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+build/
+target/
+frontend/.next/
+frontend/out/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.cursor/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
