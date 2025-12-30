@@ -12,6 +12,7 @@ import com.coursemgmt.security.jwt.JwtUtils;
 import com.coursemgmt.security.services.UserDetailsImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -52,6 +53,9 @@ public class AuthService {
 
     @Autowired
     EmailService emailService;
+
+    @Value("${app.frontend.url:http://localhost:3000}")
+    private String frontendUrl;
 
     // Chức năng Đăng nhập
     public JwtResponse loginUser(LoginRequest loginRequest) {
@@ -154,19 +158,30 @@ public class AuthService {
     @Transactional
     public void handleForgotPassword(ForgotPasswordRequest request, HttpServletRequest servletRequest) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UsernameNotFoundException("Error: Email not found!"));
+                .orElseThrow(() -> new UsernameNotFoundException("Email không tồn tại trong hệ thống!"));
 
-        // Xóa token cũ nếu có
-        tokenRepository.deleteByUser(user);
+        // Tìm token cũ nếu có
+        Optional<PasswordResetToken> existingToken = tokenRepository.findByUser(user);
 
         // Tạo token mới
         String token = UUID.randomUUID().toString();
-        PasswordResetToken resetToken = new PasswordResetToken(token, user);
+        PasswordResetToken resetToken;
+        
+        if (existingToken.isPresent()) {
+            // Cập nhật token cũ thay vì xóa và tạo mới (tránh duplicate key)
+            resetToken = existingToken.get();
+            resetToken.setToken(token);
+            resetToken.setExpiryDate(LocalDateTime.now().plusHours(24));
+        } else {
+            // Tạo token mới nếu chưa có
+            resetToken = new PasswordResetToken(token, user);
+        }
+        
         tokenRepository.save(resetToken);
 
         // Tạo link reset (trỏ về phía Frontend)
-        String appUrl = servletRequest.getScheme() + "://" + servletRequest.getServerName() + ":" + servletRequest.getServerPort();
-        String resetLink = appUrl + "/reset-password?token=" + token;
+        // Sử dụng frontend URL từ config thay vì backend URL
+        String resetLink = frontendUrl + "/reset-password?token=" + token;
 
         // Gửi email
         emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
@@ -184,6 +199,12 @@ public class AuthService {
         }
 
         User user = resetToken.getUser();
+        
+        // Kiểm tra mật khẩu mới không được giống mật khẩu cũ
+        if (encoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Mật khẩu mới phải khác mật khẩu cũ. Vui lòng chọn mật khẩu khác.");
+        }
+        
         user.setPassword(encoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
@@ -238,27 +259,6 @@ public class AuthService {
         if (request.getExpertise() != null) {
             System.out.println("UpdateProfile: Updating expertise to: " + request.getExpertise());
             user.setExpertise(request.getExpertise().trim().isEmpty() ? null : request.getExpertise().trim());
-        }
-
-        // Update social links - allow empty string to clear the fields
-        if (request.getLinkedin() != null) {
-            System.out.println("UpdateProfile: Updating linkedin to: " + request.getLinkedin());
-            user.setLinkedin(request.getLinkedin().trim().isEmpty() ? null : request.getLinkedin().trim());
-        }
-
-        if (request.getGithub() != null) {
-            System.out.println("UpdateProfile: Updating github to: " + request.getGithub());
-            user.setGithub(request.getGithub().trim().isEmpty() ? null : request.getGithub().trim());
-        }
-
-        if (request.getTwitter() != null) {
-            System.out.println("UpdateProfile: Updating twitter to: " + request.getTwitter());
-            user.setTwitter(request.getTwitter().trim().isEmpty() ? null : request.getTwitter().trim());
-        }
-
-        if (request.getWebsite() != null) {
-            System.out.println("UpdateProfile: Updating website to: " + request.getWebsite());
-            user.setWebsite(request.getWebsite().trim().isEmpty() ? null : request.getWebsite().trim());
         }
 
         // Update phoneNumber - allow empty string to clear the field
@@ -317,10 +317,6 @@ public class AuthService {
                 user.getAddress(),
                 user.getBio(),
                 user.getExpertise(),
-                user.getLinkedin(),
-                user.getGithub(),
-                user.getTwitter(),
-                user.getWebsite(),
                 user.getAvatarUrl(),
                 user.getEmailNotificationEnabled() != null ? user.getEmailNotificationEnabled() : false,
                 user.getCreatedAt()
@@ -367,13 +363,20 @@ public class AuthService {
         }
         System.out.println("ChangePassword: Old password verified successfully");
 
-        // Step 3: Hash and set new password
+        // Step 3: Check if new password is different from old password
+        if (encoder.matches(request.getNewPassword(), storedPassword)) {
+            System.out.println("ChangePassword: New password is the same as old password");
+            throw new IllegalArgumentException("Mật khẩu mới phải khác mật khẩu cũ. Vui lòng chọn mật khẩu khác.");
+        }
+        System.out.println("ChangePassword: New password is different from old password");
+
+        // Step 4: Hash and set new password
         System.out.println("ChangePassword: Encoding new password...");
         String encodedNewPassword = encoder.encode(request.getNewPassword());
         user.setPassword(encodedNewPassword);
         System.out.println("ChangePassword: New password encoded successfully");
 
-        // Step 4: Save to database
+        // Step 5: Save to database
         System.out.println("ChangePassword: Saving user to database...");
         userRepository.save(user);
         System.out.println("ChangePassword: Password changed successfully for user ID: " + userId);

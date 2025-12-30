@@ -7,6 +7,7 @@ import com.coursemgmt.model.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -76,4 +77,9 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
            "WHERE e.course.instructor.id = :instructorId " +
            "ORDER BY e.enrolledAt DESC")
     List<Enrollment> findByInstructorIdWithDetails(@Param("instructorId") Long instructorId);
+    
+    // Xóa tất cả enrollments của một course
+    @Modifying
+    @Query("DELETE FROM Enrollment e WHERE e.course.id = :courseId")
+    void deleteByCourseId(@Param("courseId") Long courseId);
 }

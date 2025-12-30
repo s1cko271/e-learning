@@ -69,17 +69,32 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // Skip logging for cart API 400 errors when user is not authenticated
+    // Skip logging for cart API 400/403 errors when user is not authenticated
     // These are expected during initial page load
     const isCartApi = error.config?.url?.includes('/cart');
     const isContentApi = error.config?.url?.includes('/content/courses');
+    const isNotificationApi = error.config?.url?.includes('/notifications');
+    const isStudentApi = error.config?.url?.includes('/student/') || error.config?.url?.includes('/my-courses');
     const is400Error = error.response?.status === 400;
     const is403Error = error.response?.status === 403;
+    const is401Error = error.response?.status === 401;
     
-    // Log error details for debugging (skip 400 validation errors to reduce console noise)
+    // Log error details for debugging (skip 400/401/403 errors for certain APIs to reduce console noise)
     if (error.response) {
-      // Skip logging cart 400 errors (expected when not authenticated)
-      if (isCartApi && is400Error) {
+      // Skip logging cart 400/401/403 errors (expected when not authenticated)
+      if (isCartApi && (is400Error || is401Error || is403Error)) {
+        // Silently handle - don't log to console
+        return Promise.reject(error);
+      }
+      
+      // Skip logging notification 401/403 errors (expected when not authenticated)
+      if (isNotificationApi && (is401Error || is403Error)) {
+        // Silently handle - don't log to console
+        return Promise.reject(error);
+      }
+      
+      // Skip logging student API 401/403 errors (expected when not authenticated)
+      if (isStudentApi && (is401Error || is403Error)) {
         // Silently handle - don't log to console
         return Promise.reject(error);
       }
@@ -91,9 +106,8 @@ apiClient.interceptors.response.use(
         return Promise.reject(error);
       }
       
-      // Only log non-400 errors (500, etc.) - validation errors (400) and auth errors (401/403) are handled in UI
-      // Skip logging 403 errors from content API (already handled above)
-      if (error.response.status !== 400 && !(isContentApi && is403Error)) {
+      // Only log non-400/401/403 errors (500, etc.) - validation errors (400) and auth errors (401/403) are handled in UI
+      if (error.response.status !== 400 && error.response.status !== 401 && error.response.status !== 403) {
         console.error('API Error Response:', {
           status: error.response.status,
           statusText: error.response.statusText,

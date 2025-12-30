@@ -35,15 +35,21 @@ public class ConversationResponse {
     
     public static ConversationResponse fromEntity(Conversation conversation, UserInfo otherParticipant, 
                                                    ChatMessageResponse lastMessage, Long unreadCount) {
+        if (conversation == null) {
+            throw new IllegalArgumentException("Conversation cannot be null");
+        }
+        
+        String typeName = conversation.getType() != null ? conversation.getType().name() : "DIRECT";
+        
         return ConversationResponse.builder()
                 .id(conversation.getId())
-                .type(conversation.getType().name())
+                .type(typeName)
                 .createdAt(conversation.getCreatedAt())
                 .updatedAt(conversation.getUpdatedAt())
                 .lastMessageAt(conversation.getLastMessageAt())
                 .otherParticipant(otherParticipant)
                 .lastMessage(lastMessage)
-                .unreadCount(unreadCount)
+                .unreadCount(unreadCount != null ? unreadCount : 0L)
                 .build();
     }
 }

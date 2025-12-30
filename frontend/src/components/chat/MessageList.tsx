@@ -110,13 +110,13 @@ export function MessageList({
               
               return (
                 <div key={`msg-${message.id}-${index}`} className={isLastFromSender ? 'mb-3' : 'mb-0.5'}>
-                  <MessageItem
-                    message={message}
-                    showAvatar={showAvatar}
-                    showName={showName}
+                <MessageItem
+                  message={message}
+                  showAvatar={showAvatar}
+                  showName={showName}
                     onEdit={onEditMessage}
                     onDelete={onDeleteMessage}
-                  />
+                />
                 </div>
               );
             })}

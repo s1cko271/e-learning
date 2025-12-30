@@ -15,16 +15,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Search, Loader2, ExternalLink, UserCog } from 'lucide-react';
+import { Search, Loader2, ExternalLink } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { ROUTES } from '@/lib/constants';
@@ -38,8 +29,6 @@ export default function AdminCoursesPage() {
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
-  const [transferringCourse, setTransferringCourse] = React.useState<AdminCourse | null>(null);
-  const [selectedInstructorId, setSelectedInstructorId] = React.useState<number | null>(null);
 
   // Debounce search
   React.useEffect(() => {
@@ -63,41 +52,6 @@ export default function AdminCoursesPage() {
     }),
   });
 
-  // Fetch instructors for transfer ownership
-  const { data: instructors = [] } = useQuery({
-    queryKey: ['admin-instructors'],
-    queryFn: () => adminService.getInstructors(),
-  });
-
-  // Transfer ownership mutation
-  const transferMutation = useMutation({
-    mutationFn: ({ courseId, instructorId }: { courseId: number; instructorId: number }) =>
-      adminService.transferCourseOwnership(courseId, instructorId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
-      setTransferringCourse(null);
-      setSelectedInstructorId(null);
-      addToast({
-        type: 'success',
-        message: 'Chuyển quyền sở hữu thành công',
-      });
-    },
-    onError: (error: any) => {
-      addToast({
-        type: 'error',
-        message: error.response?.data?.message || 'Có lỗi xảy ra khi chuyển quyền sở hữu',
-      });
-    },
-  });
-
-  const handleTransfer = () => {
-    if (transferringCourse && selectedInstructorId) {
-      transferMutation.mutate({
-        courseId: transferringCourse.id,
-        instructorId: selectedInstructorId,
-      });
-    }
-  };
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -207,17 +161,6 @@ export default function AdminCoursesPage() {
                           Xem
                         </Link>
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setTransferringCourse(course);
-                          setSelectedInstructorId(null);
-                        }}
-                      >
-                        <UserCog className="h-4 w-4 mr-2" />
-                        Chuyển quyền
-                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -253,66 +196,6 @@ export default function AdminCoursesPage() {
           </div>
         )}
       </div>
-
-      {/* Transfer Ownership Dialog */}
-      <Dialog open={!!transferringCourse} onOpenChange={(open) => !open && setTransferringCourse(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Chuyển quyền sở hữu khóa học</DialogTitle>
-            <DialogDescription>
-              Chọn giảng viên để chuyển quyền sở hữu khóa học "{transferringCourse?.title}"
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="instructor">Giảng viên *</Label>
-              <Select
-                value={selectedInstructorId?.toString() || ''}
-                onValueChange={(value) => setSelectedInstructorId(Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn giảng viên..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {instructors.map((instructor) => (
-                    <SelectItem key={instructor.id} value={instructor.id.toString()}>
-                      {instructor.fullName} ({instructor.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {transferringCourse && (
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium">Khóa học hiện tại:</p>
-                <p className="text-sm text-muted-foreground">
-                  Giảng viên: {transferringCourse.instructor?.fullName || transferringCourse.instructorName || 'N/A'}
-                </p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setTransferringCourse(null);
-                setSelectedInstructorId(null);
-              }}
-            >
-              Hủy
-            </Button>
-            <Button
-              type="button"
-              onClick={handleTransfer}
-              disabled={!selectedInstructorId || transferMutation.isPending}
-            >
-              {transferMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Chuyển quyền
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

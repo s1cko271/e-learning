@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Bell, ShoppingCart, User, LogOut, BookOpen, Menu } from 'lucide-react';
+import { Search, Bell, ShoppingCart, User, LogOut, BookOpen, Menu, LayoutDashboard, Users, FolderTree, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/stores/authStore';
 import { useCartStore } from '@/stores/cartStore';
 import { useUIStore } from '@/stores/uiStore';
-import { ROUTES } from '@/lib/constants';
+import { ROUTES, STORAGE_KEYS } from '@/lib/constants';
 import { useQuery } from '@tanstack/react-query';
 import { getUnreadCount, getNotifications, markAsRead, markAllAsRead, type Notification } from '@/services/notificationService';
 
@@ -29,20 +29,55 @@ export function Navbar() {
   const { cart, fetchCart } = useCartStore();
   const { toggleTheme, theme } = useUIStore();
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [isMounted, setIsMounted] = React.useState(false);
+  
+  // Set mounted state on client side
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  // Check if token exists and is valid - only after mount
+  const hasValidToken = React.useMemo(() => {
+    if (!isMounted || typeof window === 'undefined') return false;
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    return !!token && !!isAuthenticated && !!user?.id;
+  }, [isMounted, isAuthenticated, user?.id]);
   
   // Fetch unread notification count
   const { data: unreadCount = 0, refetch: refetchUnreadCount } = useQuery({
     queryKey: ['notifications-unread-count'],
-    queryFn: getUnreadCount,
-    enabled: isAuthenticated,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    queryFn: async () => {
+      try {
+        return await getUnreadCount();
+      } catch (error: any) {
+        // Silently handle 403 errors
+        if (error?.response?.status === 403) {
+          return 0;
+        }
+        throw error;
+      }
+    },
+    enabled: hasValidToken,
+    refetchInterval: hasValidToken ? 30000 : false, // Only refetch if token is valid
+    retry: false, // Don't retry on any error
   });
   
   // Fetch notifications
   const { data: notificationsData, refetch: refetchNotifications } = useQuery({
     queryKey: ['notifications'],
-    queryFn: () => getNotifications(0, 10),
-    enabled: isAuthenticated,
+    queryFn: async () => {
+      try {
+        return await getNotifications(0, 10);
+      } catch (error: any) {
+        // Silently handle 403 errors
+        if (error?.response?.status === 403) {
+          return { content: [], totalElements: 0, totalPages: 0, number: 0, size: 10 };
+        }
+        throw error;
+      }
+    },
+    enabled: hasValidToken,
+    retry: false, // Don't retry on any error
   });
   
   const notifications = notificationsData?.content || [];
@@ -53,27 +88,17 @@ export function Navbar() {
   React.useEffect(() => {
     // Only fetch cart if user is fully authenticated and is a student
     // Check if token exists in localStorage before making API call
-    if (isAuthenticated && user?.role === 'ROLE_STUDENT' && user?.id) {
-      // Check if token exists
-      const token = typeof window !== 'undefined' 
-        ? localStorage.getItem('auth_token') 
-        : null;
-      
-      if (!token) {
-        // No token, skip fetching cart
-        return;
-      }
-      
+    if (hasValidToken && user?.role === 'ROLE_STUDENT' && user?.id) {
       // Small delay to ensure authentication token is ready
       const timer = setTimeout(() => {
         fetchCart().catch((error) => {
-          // Silently handle 400/401 errors (user might not be fully authenticated yet)
-          if (error.response?.status === 400 || error.response?.status === 401) {
+          // Silently handle 400/401/403 errors (user might not be fully authenticated yet)
+          if (error.response?.status === 400 || error.response?.status === 401 || error.response?.status === 403) {
             // Don't log these errors - they're expected during initial load
             return;
           }
           // Only log unexpected errors
-          if (error.response?.status !== 400 && error.response?.status !== 401) {
+          if (error.response?.status !== 400 && error.response?.status !== 401 && error.response?.status !== 403) {
             console.error('Error fetching cart:', error);
           }
         });
@@ -81,7 +106,7 @@ export function Navbar() {
       
       return () => clearTimeout(timer);
     }
-  }, [isAuthenticated, user?.role, user?.id, fetchCart]);
+  }, [hasValidToken, user?.role, user?.id, fetchCart]);
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -301,16 +326,43 @@ export function Navbar() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {/* Student Menu: Dashboard, Khóa học của tôi, Đăng xuất */}
-                  {/* Note: "Cài đặt" and "Tiến độ học tập" have been removed as requested */}
-                  <DropdownMenuItem onClick={() => router.push(getDashboardRoute())}>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Dashboard</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push(getMyCoursesRoute())}>
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    <span>Khóa học của tôi</span>
-                  </DropdownMenuItem>
+                  {user?.role === 'ROLE_ADMIN' ? (
+                    <>
+                      {/* Admin Menu */}
+                      <DropdownMenuItem onClick={() => router.push(ROUTES.ADMIN.DASHBOARD)}>
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                        <span>Dashboard</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push(ROUTES.ADMIN.USERS)}>
+                        <Users className="mr-2 h-4 w-4" />
+                        <span>Người dùng</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push(ROUTES.ADMIN.COURSES)}>
+                        <BookOpen className="mr-2 h-4 w-4" />
+                        <span>Khóa học</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push(ROUTES.ADMIN.CATEGORIES)}>
+                        <FolderTree className="mr-2 h-4 w-4" />
+                        <span>Danh mục</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push(ROUTES.ADMIN.TRANSACTIONS)}>
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        <span>Giao dịch</span>
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      {/* Student/Instructor Menu */}
+                      <DropdownMenuItem onClick={() => router.push(getDashboardRoute())}>
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Dashboard</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push(getMyCoursesRoute())}>
+                        <BookOpen className="mr-2 h-4 w-4" />
+                        <span>Khóa học của tôi</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />

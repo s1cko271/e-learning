@@ -9,10 +9,6 @@ export interface UpdateProfileRequest {
   address?: string; // Backend field name
   bio?: string;
   expertise?: string;
-  linkedin?: string;
-  github?: string;
-  twitter?: string;
-  website?: string;
   avatarUrl?: string; // Set after avatar upload
   emailNotificationEnabled?: boolean;
   // Note: email is NOT included to avoid security issues
@@ -38,10 +34,6 @@ export interface ProfileResponse {
   address?: string;
   bio?: string;
   expertise?: string;
-  linkedin?: string;
-  github?: string;
-  twitter?: string;
-  website?: string;
   avatarUrl?: string;
   emailNotificationEnabled?: boolean;
   createdAt: string;

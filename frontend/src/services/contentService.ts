@@ -54,8 +54,8 @@ export interface LessonResponse {
   content?: string;
   durationInMinutes?: number;
   position: number;
+  isPreview?: boolean; // Cho phép giảng viên preview bài học trước khi publish
   isCompleted?: boolean;
-  isPreview?: boolean; // Lesson có thể xem trước (cho guests)
 }
 
 export interface ChapterRequest {
@@ -72,6 +72,7 @@ export interface LessonRequest {
   content?: string; // For TEXT content type
   durationInMinutes: number;
   position: number;
+  isPreview?: boolean; // Cho phép giảng viên preview bài học trước khi publish
 }
 
 export interface UserProgress {
@@ -172,6 +173,14 @@ export const updateLesson = async (courseId: number, chapterId: number, lessonId
  */
 export const deleteLesson = async (courseId: number, chapterId: number, lessonId: number): Promise<{ message: string }> => {
   const response = await apiClient.delete(`/v1/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}`);
+  return response.data;
+};
+
+/**
+ * Preview a lesson (for instructors only)
+ */
+export const previewLesson = async (lessonId: number): Promise<LessonResponse> => {
+  const response = await apiClient.get<LessonResponse>(`/manage/content/lessons/${lessonId}/preview`);
   return response.data;
 };
 

@@ -178,7 +178,7 @@ export function MessageInput({ conversationId, onSend, onTyping, disabled }: Mes
           {uploadingFile ? (
             <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           ) : (
-            <Paperclip className="h-5 w-5" />
+          <Paperclip className="h-5 w-5" />
           )}
         </Button>
         

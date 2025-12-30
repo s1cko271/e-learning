@@ -14,7 +14,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { isYouTubeUrl, getYouTubeEmbedUrl } from '@/lib/utils';
 import { ROUTES } from '@/lib/constants';
 import type { ChapterResponse, LessonResponse, ChapterRequest, LessonRequest } from '@/services/contentService';
-import { createChapter, updateChapter, deleteChapter, createLesson, updateLesson, deleteLesson, uploadLessonVideo, uploadLessonDocument, uploadLessonSlide, reorderChapters, reorderLessons } from '@/services/contentService';
+import { createChapter, updateChapter, deleteChapter, createLesson, updateLesson, deleteLesson, uploadLessonVideo, uploadLessonDocument, uploadLessonSlide, reorderChapters, reorderLessons, previewLesson as previewLessonApi } from '@/services/contentService';
 import { useCourse } from '@/hooks/useCourses';
 
 // Dialog components for creating/editing chapters and lessons
@@ -49,7 +49,7 @@ export default function CourseContentPage() {
   const [chapterDialogOpen, setChapterDialogOpen] = React.useState(false);
   const [lessonDialogOpen, setLessonDialogOpen] = React.useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = React.useState(false);
-  const [previewingLesson, setPreviewingLesson] = React.useState<LessonResponse | null>(null);
+  const [previewLesson, setPreviewLesson] = React.useState<LessonResponse | null>(null);
   const [editingChapter, setEditingChapter] = React.useState<ChapterResponse | null>(null);
   const [editingLesson, setEditingLesson] = React.useState<{ chapterId: number; lesson: LessonResponse } | null>(null);
   const [selectedChapterId, setSelectedChapterId] = React.useState<number | null>(null);
@@ -256,10 +256,18 @@ export default function CourseContentPage() {
     deleteLessonMutation.mutate({ chapterId, lessonId });
   };
 
-  const handlePreviewLesson = (lesson: LessonResponse) => {
-    setPreviewingLesson(lesson);
-    setPreviewDialogOpen(true);
+  const handlePreviewLesson = async (lessonId: number) => {
+    try {
+      const lesson = await previewLessonApi(lessonId);
+      setPreviewLesson(lesson);
+      setPreviewDialogOpen(true);
+    } catch (error: any) {
+      console.error('Preview lesson error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi tải bài học để preview';
+      addToast({ type: 'error', description: errorMessage });
+    }
   };
+
 
   if (isLoadingCourse) {
     return (
@@ -353,10 +361,10 @@ export default function CourseContentPage() {
                           onAddLesson={() => handleCreateLesson(chapter.id)}
                           onEditLesson={(lesson) => handleEditLesson(chapter.id, lesson)}
                           onDeleteLesson={(lessonId, lessonTitle) => handleDeleteLesson(chapter.id, lessonId, lessonTitle)}
+                          onPreviewLesson={(lessonId) => handlePreviewLesson(lessonId)}
                           onReorderLessons={(lessonPositions) => {
                             reorderLessonsMutation.mutate({ chapterId: chapter.id, lessonPositions });
                           }}
-                          onPreviewLesson={handlePreviewLesson}
                         />
                       </div>
                     )}
@@ -409,9 +417,112 @@ export default function CourseContentPage() {
       <PreviewLessonDialog
         open={previewDialogOpen}
         onOpenChange={setPreviewDialogOpen}
-        lesson={previewingLesson}
+        lesson={previewLesson}
       />
+
     </div>
+  );
+}
+
+// Preview Lesson Dialog Component
+function PreviewLessonDialog({
+  open,
+  onOpenChange,
+  lesson,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  lesson: LessonResponse | null;
+}) {
+  if (!lesson) return null;
+
+  const renderContent = () => {
+    switch (lesson.contentType) {
+      case 'VIDEO':
+        if (!lesson.videoUrl) return <p className="text-muted-foreground">Chưa có video</p>;
+        if (isYouTubeUrl(lesson.videoUrl)) {
+          return (
+            <div className="aspect-video w-full">
+              <iframe
+                src={getYouTubeEmbedUrl(lesson.videoUrl)}
+                className="w-full h-full rounded-lg"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          );
+        }
+        return (
+          <video
+            src={lesson.videoUrl}
+            controls
+            className="w-full rounded-lg"
+            style={{ maxHeight: '70vh' }}
+          />
+        );
+      case 'TEXT':
+        return (
+          <div className="p-8 prose max-w-none">
+            <div
+              className="whitespace-pre-wrap"
+              dangerouslySetInnerHTML={{ __html: lesson.content || 'Chưa có nội dung' }}
+            />
+          </div>
+        );
+      case 'DOCUMENT':
+        if (!lesson.documentUrl) return <p className="text-muted-foreground">Chưa có tài liệu</p>;
+        const getViewUrl = (url: string) => {
+          if (url.includes('/api/files/lessons/documents/')) {
+            return url.replace('/api/files/lessons/documents/', '/api/files/view/documents/');
+          }
+          const file = url.split('/').pop();
+          return `http://localhost:8080/api/files/view/documents/${file}`;
+        };
+        const viewUrl = getViewUrl(lesson.documentUrl);
+        return (
+          <div className="w-full" style={{ height: '70vh' }}>
+            <iframe src={viewUrl} className="w-full h-full rounded-lg" />
+          </div>
+        );
+      case 'SLIDE':
+        if (!lesson.slideUrl) return <p className="text-muted-foreground">Chưa có slide</p>;
+        const getSlideViewUrl = (url: string) => {
+          if (url.includes('/api/files/lessons/slides/')) {
+            return url.replace('/api/files/lessons/slides/', '/api/files/view/slides/');
+          }
+          const file = url.split('/').pop();
+          return `http://localhost:8080/api/files/view/slides/${file}`;
+        };
+        const slideViewUrl = getSlideViewUrl(lesson.slideUrl);
+        return (
+          <div className="w-full" style={{ height: '70vh' }}>
+            <iframe src={slideViewUrl} className="w-full h-full rounded-lg" />
+          </div>
+        );
+      default:
+        return <p className="text-muted-foreground">Loại nội dung không được hỗ trợ</p>;
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Xem trước: {lesson.title}</DialogTitle>
+          <DialogDescription>
+            Đây là cách bài học sẽ hiển thị cho học viên
+          </DialogDescription>
+        </DialogHeader>
+        <div className="mt-4">
+          {renderContent()}
+        </div>
+        <DialogFooter>
+          <Button type="button" onClick={() => onOpenChange(false)}>
+            Đóng
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -424,8 +535,8 @@ function ChapterCard({
   onAddLesson,
   onEditLesson,
   onDeleteLesson,
-  onReorderLessons,
   onPreviewLesson,
+  onReorderLessons,
 }: {
   chapter: ChapterResponse;
   dragHandleProps?: any;
@@ -434,8 +545,8 @@ function ChapterCard({
   onAddLesson: () => void;
   onEditLesson: (lesson: LessonResponse) => void;
   onDeleteLesson: (lessonId: number, lessonTitle: string) => void;
+  onPreviewLesson: (lessonId: number) => void;
   onReorderLessons: (lessonPositions: Record<number, number>) => void;
-  onPreviewLesson: (lesson: LessonResponse) => void;
 }) {
   return (
     <Card>
@@ -507,7 +618,7 @@ function ChapterCard({
                             dragHandleProps={provided.dragHandleProps}
                             onEdit={() => onEditLesson(lesson)}
                             onDelete={() => onDeleteLesson(lesson.id, lesson.title)}
-                            onPreview={() => onPreviewLesson(lesson)}
+                            onPreview={() => onPreviewLesson(lesson.id)}
                           />
                         </div>
                       )}
@@ -1193,244 +1304,4 @@ function LessonDialog({
   );
 }
 
-// Preview Lesson Dialog Component
-function PreviewLessonDialog({
-  open,
-  onOpenChange,
-  lesson,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  lesson: LessonResponse | null;
-}) {
-  if (!lesson) return null;
-
-  const renderContent = () => {
-    switch (lesson.contentType) {
-      case 'VIDEO':
-        if (!lesson.videoUrl) {
-          return (
-            <div className="flex items-center justify-center h-64 text-muted-foreground">
-              <p>Chưa có video cho bài học này</p>
-            </div>
-          );
-        }
-        
-        // Check if it's a YouTube URL
-        if (isYouTubeUrl(lesson.videoUrl)) {
-          const embedUrl = getYouTubeEmbedUrl(lesson.videoUrl);
-          if (embedUrl) {
-            return (
-              <div className="w-full">
-                <div className="relative w-full pt-[56.25%]">
-                  <iframe
-                    src={embedUrl}
-                    className="absolute top-0 left-0 w-full h-full rounded-lg"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    title={lesson.title}
-                  />
-                </div>
-              </div>
-            );
-          }
-        }
-        
-        // Regular video file
-        return (
-          <div className="w-full">
-            <video
-              controls
-              className="w-full rounded-lg"
-              style={{ maxHeight: '70vh' }}
-            >
-              <source src={lesson.videoUrl} type="video/mp4" />
-              <source src={lesson.videoUrl} type="video/webm" />
-              Trình duyệt của bạn không hỗ trợ video tag.
-            </video>
-          </div>
-        );
-
-      case 'DOCUMENT':
-        if (!lesson.documentUrl) {
-          return (
-            <div className="flex items-center justify-center h-64 text-muted-foreground">
-              <p>Chưa có tài liệu cho bài học này</p>
-            </div>
-          );
-        }
-        
-        // Extract filename from URL and determine file type
-        const docUrl = lesson.documentUrl;
-        console.log('Document URL:', docUrl);
-        const fileName = docUrl.split('/').pop() || '';
-        const isPdf = fileName.toLowerCase().endsWith('.pdf');
-        
-        // Convert document URL to inline viewing URL
-        const getViewUrl = (url: string) => {
-          console.log('getViewUrl input:', url);
-          // If it's already a full URL with /api/files/lessons/documents/, convert to /api/files/view/documents/
-          if (url.includes('/api/files/lessons/documents/')) {
-            const result = url.replace('/api/files/lessons/documents/', '/api/files/view/documents/');
-            console.log('getViewUrl output (replaced):', result);
-            return result;
-          }
-          // If it's just a filename or relative path
-          const file = url.split('/').pop();
-          const result = `http://localhost:8080/api/files/view/documents/${file}`;
-          console.log('getViewUrl output (constructed):', result);
-          return result;
-        };
-        
-        const viewUrl = getViewUrl(docUrl);
-        
-        // Show document viewer
-        return (
-          <div className="w-full h-[70vh] flex flex-col gap-4">
-            {/* Info bar */}
-            <div className="flex items-center justify-between bg-muted p-3 rounded-lg">
-              <span className="text-sm">📄 {fileName} (PDF)</span>
-              <a
-                href={viewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90"
-              >
-                Mở tab mới
-              </a>
-            </div>
-            
-            {/* PDF viewer */}
-            <object
-              data={viewUrl}
-              type="application/pdf"
-              className="w-full flex-1 border rounded-lg"
-            >
-              <div className="flex flex-col items-center justify-center h-full gap-4">
-                <FileText className="h-16 w-16 text-muted-foreground" />
-                <p className="text-muted-foreground">Trình duyệt không hỗ trợ xem PDF trực tiếp</p>
-                <a
-                  href={viewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                >
-                  Mở PDF trong tab mới
-                </a>
-              </div>
-            </object>
-          </div>
-        );
-
-      case 'SLIDE':
-        if (!lesson.slideUrl) {
-          return (
-            <div className="flex items-center justify-center h-64 text-muted-foreground">
-              <p>Chưa có slide cho bài học này</p>
-            </div>
-          );
-        }
-        
-        const slideUrl = lesson.slideUrl;
-        const slideFileName = slideUrl.split('/').pop() || '';
-        
-        // Convert slide URL to inline viewing URL
-        const getSlideViewUrl = (url: string) => {
-          if (url.includes('/api/files/lessons/slides/')) {
-            return url.replace('/api/files/lessons/slides/', '/api/files/view/slides/');
-          }
-          const file = url.split('/').pop();
-          return `http://localhost:8080/api/files/view/slides/${file}`;
-        };
-        
-        const slideViewUrl = getSlideViewUrl(slideUrl);
-        
-        return (
-          <div className="w-full h-[70vh] flex flex-col gap-4">
-            {/* Info bar */}
-            <div className="flex items-center justify-between bg-muted p-3 rounded-lg">
-              <span className="text-sm">📊 {slideFileName} (Slide - đã chuyển sang PDF)</span>
-              <a
-                href={slideViewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90"
-              >
-                Mở tab mới
-              </a>
-            </div>
-            
-            {/* Slide viewer - All slides are now PDF (auto-converted from PPT/PPTX) */}
-            <object
-              data={slideViewUrl}
-              type="application/pdf"
-              className="w-full flex-1 border rounded-lg"
-            >
-              <div className="flex flex-col items-center justify-center h-full gap-4">
-                <FileText className="h-16 w-16 text-muted-foreground" />
-                <p className="text-muted-foreground">Trình duyệt không hỗ trợ xem PDF trực tiếp</p>
-                <a
-                  href={slideViewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                >
-                  Mở slide trong tab mới
-                </a>
-              </div>
-            </object>
-          </div>
-        );
-
-      case 'TEXT':
-        if (!lesson.content) {
-          return (
-            <div className="flex items-center justify-center h-64 text-muted-foreground">
-              <p>Chưa có nội dung cho bài học này</p>
-            </div>
-          );
-        }
-        return (
-          <div className="prose max-w-none p-6">
-            <div
-              className="whitespace-pre-wrap"
-              dangerouslySetInnerHTML={{ __html: lesson.content }}
-            />
-          </div>
-        );
-
-      default:
-        return (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            <p>Loại nội dung không được hỗ trợ</p>
-          </div>
-        );
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Xem trước: {lesson.title}</DialogTitle>
-          <DialogDescription>
-            {lesson.contentType === 'VIDEO' && 'Video bài giảng'}
-            {lesson.contentType === 'DOCUMENT' && 'Tài liệu PDF'}
-            {lesson.contentType === 'SLIDE' && 'Slide bài giảng'}
-            {lesson.contentType === 'TEXT' && 'Bài đọc'}
-            {lesson.durationInMinutes && ` • ${lesson.durationInMinutes} phút`}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="mt-4">
-          {renderContent()}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Đóng
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 

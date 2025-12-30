@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthStore } from '@/stores/authStore';
-import { ROUTES } from '@/lib/constants';
+import { ROUTES, STORAGE_KEYS } from '@/lib/constants';
 import apiClient from '@/lib/api';
 import type { Course } from '@/types';
 import { CourseCard } from '@/components/course/CourseCard';
@@ -28,27 +28,43 @@ import { useUIStore } from '@/stores/uiStore';
 import { studentService } from '@/services/studentService';
 
 export default function StudentDashboard() {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const { addToast } = useUIStore();
   const [courses, setCourses] = React.useState<Course[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   
+  // Check if token exists and is valid
+  const hasValidToken = React.useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    return !!token && isAuthenticated && !!user?.id;
+  }, [isAuthenticated, user?.id]);
+  
   // Fetch my courses from API
   React.useEffect(() => {
     const fetchCourses = async () => {
+      if (!hasValidToken) {
+        setIsLoading(false);
+        setCourses([]);
+        return;
+      }
+      
       try {
-        console.log('Fetching my courses for dashboard...');
         const response = await apiClient.get<Course[]>('/v1/courses/my-courses');
-        console.log('Dashboard - MY COURSES DATA:', response.data);
         
         if (Array.isArray(response.data)) {
           setCourses(response.data);
         } else {
-          console.warn('Response is not an array:', response.data);
           setCourses([]);
         }
-      } catch (error) {
-        console.error('Error fetching courses:', error);
+      } catch (error: any) {
+        // Silently handle 403 errors (user not authenticated)
+        if (error.response?.status === 403 || error.response?.status === 401) {
+          setCourses([]);
+        } else {
+          // Only log non-auth errors
+          console.error('Error fetching courses:', error);
+        }
         setCourses([]);
       } finally {
         setIsLoading(false);
@@ -56,13 +72,24 @@ export default function StudentDashboard() {
     };
     
     fetchCourses();
-  }, []);
+  }, [hasValidToken]);
   
   // Fetch dashboard stats
   const { data: dashboardStats, isLoading: statsLoading } = useQuery({
     queryKey: ['student-dashboard-stats', user?.id],
-    queryFn: () => studentService.getDashboardStats(),
-    enabled: !!user?.id,
+    queryFn: async () => {
+      try {
+        return await studentService.getDashboardStats();
+      } catch (error: any) {
+        // Silently handle 403 errors
+        if (error?.response?.status === 403) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    enabled: hasValidToken,
+    retry: false, // Don't retry on any error
   });
 
   // Fetch certificates
@@ -70,9 +97,18 @@ export default function StudentDashboard() {
     queryKey: ['my-certificates', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('User not found');
-      return await getMyCertificates(user.id, { page: 0, size: 100 });
+      try {
+        return await getMyCertificates(user.id, { page: 0, size: 100 });
+      } catch (error: any) {
+        // Silently handle 403 errors
+        if (error?.response?.status === 403) {
+          return { content: [], totalElements: 0, totalPages: 0, number: 0, size: 100 };
+        }
+        throw error;
+      }
     },
-    enabled: !!user?.id,
+    enabled: hasValidToken,
+    retry: false, // Don't retry on any error
   });
   
   const certificates = certificatesData?.content || [];
@@ -135,7 +171,7 @@ export default function StudentDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold font-poppins mb-2">
-                Chào mừng trở lại, {user?.fullName}! 👋
+                Chào mừng trở lại, {user?.fullName}!
               </h1>
               <p className="text-muted-foreground">
                 Tiếp tục hành trình học tập của bạn

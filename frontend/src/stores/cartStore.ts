@@ -31,8 +31,8 @@ export const useCartStore = create<CartState>((set, get) => ({
       const cart = await getCart();
       set({ cart, isLoading: false });
     } catch (error: any) {
-      // Don't log 400/401 errors - they're expected if user is not fully authenticated
-      if (error.response?.status === 400 || error.response?.status === 401) {
+      // Don't log 400/401/403 errors - they're expected if user is not fully authenticated
+      if (error.response?.status === 400 || error.response?.status === 401 || error.response?.status === 403) {
         // Set empty cart instead of error
         set({ cart: null, isLoading: false, error: null });
         return;

@@ -7,10 +7,6 @@ import * as z from 'zod';
 import { 
   User, 
   Mail,
-  Linkedin,
-  Github,
-  Twitter,
-  Globe,
   Save,
   Upload,
   Camera,
@@ -41,10 +37,6 @@ const profileSchema = z.object({
   location: z.string().optional(),
   bio: z.string().max(500, 'Bio không được vượt quá 500 ký tự').optional(),
   expertise: z.string().optional(),
-  linkedin: z.string().url('URL không hợp lệ').optional().or(z.literal('')),
-  github: z.string().url('URL không hợp lệ').optional().or(z.literal('')),
-  twitter: z.string().url('URL không hợp lệ').optional().or(z.literal('')),
-  website: z.string().url('URL không hợp lệ').optional().or(z.literal('')),
 });
 
 const passwordSchema = z.object({
@@ -104,10 +96,6 @@ export default function InstructorProfilePage() {
       location: '',
       bio: user?.bio || '',
       expertise: '',
-      linkedin: '',
-      github: '',
-      twitter: '',
-      website: '',
     },
   });
 
@@ -134,10 +122,6 @@ export default function InstructorProfilePage() {
           location: freshData.address || '',
           bio: freshData.bio || '',
           expertise: freshData.expertise || '',
-          linkedin: freshData.linkedin || '',
-          github: freshData.github || '',
-          twitter: freshData.twitter || '',
-          website: freshData.website || '',
         });
         
         // Update avatar preview
@@ -248,10 +232,6 @@ export default function InstructorProfilePage() {
         address: data.location || undefined,
         bio: data.bio || undefined,
         expertise: data.expertise || undefined,
-        linkedin: data.linkedin || undefined,
-        github: data.github || undefined,
-        twitter: data.twitter || undefined,
-        website: data.website || undefined,
       };
       
       // Add avatarUrl if avatar was uploaded
@@ -492,75 +472,6 @@ export default function InstructorProfilePage() {
                     <p className="text-xs text-muted-foreground mt-1">
                       Phân cách các kỹ năng bằng dấu phẩy
                     </p>
-                  </div>
-
-                  {/* Social Links */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold">Liên kết mạng xã hội</h3>
-                    
-                    <div>
-                      <Label htmlFor="linkedin">LinkedIn</Label>
-                      <div className="relative mt-2">
-                        <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="linkedin"
-                          {...registerProfile('linkedin')}
-                          placeholder="https://linkedin.com/in/yourprofile"
-                          className="pl-10"
-                        />
-                      </div>
-                      {profileErrors.linkedin && (
-                        <p className="text-sm text-destructive mt-1">{profileErrors.linkedin.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="github">GitHub</Label>
-                      <div className="relative mt-2">
-                        <Github className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="github"
-                          {...registerProfile('github')}
-                          placeholder="https://github.com/yourusername"
-                          className="pl-10"
-                        />
-                      </div>
-                      {profileErrors.github && (
-                        <p className="text-sm text-destructive mt-1">{profileErrors.github.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="twitter">Twitter</Label>
-                      <div className="relative mt-2">
-                        <Twitter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="twitter"
-                          {...registerProfile('twitter')}
-                          placeholder="https://twitter.com/yourusername"
-                          className="pl-10"
-                        />
-                      </div>
-                      {profileErrors.twitter && (
-                        <p className="text-sm text-destructive mt-1">{profileErrors.twitter.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="website">Website cá nhân</Label>
-                      <div className="relative mt-2">
-                        <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="website"
-                          {...registerProfile('website')}
-                          placeholder="https://yourwebsite.com"
-                          className="pl-10"
-                        />
-                      </div>
-                      {profileErrors.website && (
-                        <p className="text-sm text-destructive mt-1">{profileErrors.website.message}</p>
-                      )}
-                    </div>
                   </div>
                   
                   <div className="flex items-center justify-between pt-4">

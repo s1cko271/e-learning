@@ -4,8 +4,6 @@ import com.coursemgmt.dto.CourseRequest;
 import com.coursemgmt.dto.CourseResponse;
 import com.coursemgmt.dto.CourseStatisticsResponse;
 import com.coursemgmt.dto.CourseAnalyticsResponse;
-import com.coursemgmt.dto.ChapterResponse;
-import com.coursemgmt.dto.LessonResponse;
 import com.coursemgmt.exception.ResourceNotFoundException;
 import com.coursemgmt.model.*;
 import com.coursemgmt.model.EEnrollmentStatus;
@@ -17,6 +15,8 @@ import com.coursemgmt.repository.UserRepository;
 import com.coursemgmt.repository.ChapterRepository;
 import com.coursemgmt.repository.LessonRepository;
 import com.coursemgmt.repository.TransactionRepository;
+import com.coursemgmt.repository.CartItemRepository;
+import com.coursemgmt.repository.NotificationRepository;
 import com.coursemgmt.security.services.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -71,6 +71,12 @@ public class CourseService {
     
     @Autowired
     private ReviewRepository reviewRepository;
+
+    @Autowired
+    private CartItemRepository cartItemRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @Autowired
     private NewsletterService newsletterService;
@@ -243,6 +249,25 @@ public class CourseService {
     public void deleteCourse(Long courseId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Course not found!"));
+        
+        // Xóa các bản ghi liên quan trước khi xóa khóa học (để tránh foreign key constraint violation)
+        
+        // 1. Xóa reviews
+        reviewRepository.deleteByCourseId(courseId);
+        
+        // 2. Xóa cart items
+        cartItemRepository.deleteByCourseId(courseId);
+        
+        // 3. Xóa notifications liên quan đến khóa học
+        notificationRepository.deleteByCourseId(courseId);
+        
+        // 4. Xóa enrollments (sẽ tự động xóa User_Progress và Certificates do cascade)
+        enrollmentRepository.deleteByCourseId(courseId);
+        
+        // 5. Xóa transactions
+        transactionRepository.deleteByCourseId(courseId);
+        
+        // 6. Xóa khóa học (chapters và lessons sẽ tự động xóa do cascade = CascadeType.ALL)
         courseRepository.delete(course);
     }
 
@@ -739,143 +764,7 @@ public class CourseService {
         return courseRepository.save(course);
     }
 
-    // Chức năng 10: Lấy preview curriculum (Public - for guests)
-    // This endpoint is PUBLIC and does NOT require authentication
-    // It returns course structure without user progress data
-    public List<ChapterResponse> getCoursePreview(Long courseId) {
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Course", "id", courseId));
-
-        // Only return preview for published courses
-        if (course.getStatus() != ECourseStatus.PUBLISHED) {
-            throw new RuntimeException("Course is not published!");
-        }
-
-        // Get all chapters with lessons (using JOIN FETCH to avoid LAZY loading issues)
-        List<Chapter> chapters = chapterRepository.findByCourseIdWithLessons(courseId);
-        
-        if (chapters == null || chapters.isEmpty()) {
-            return List.of(); // Return empty list if no chapters
-        }
-
-        // Find the first VIDEO lesson of the entire course for preview
-        // If first lesson is not VIDEO, find the first VIDEO lesson
-        Long firstPreviewLessonId = null;
-        if (!chapters.isEmpty()) {
-            // Sort chapters by position
-            List<Chapter> sortedChapters = chapters.stream()
-                    .filter(chapter -> chapter != null)
-                    .sorted((c1, c2) -> {
-                        Integer pos1 = c1.getPosition() != null ? c1.getPosition() : Integer.MAX_VALUE;
-                        Integer pos2 = c2.getPosition() != null ? c2.getPosition() : Integer.MAX_VALUE;
-                        return Integer.compare(pos1, pos2);
-                    })
-                    .collect(Collectors.toList());
-            
-            // Search through all chapters to find first VIDEO lesson
-            for (Chapter chapter : sortedChapters) {
-                if (chapter == null || chapter.getLessons() == null || chapter.getLessons().isEmpty()) {
-                    continue;
-                }
-                
-                // Sort lessons by position
-                List<Lesson> sortedLessons = chapter.getLessons().stream()
-                        .filter(lesson -> lesson != null)
-                        .sorted((l1, l2) -> {
-                            Integer pos1 = l1.getPosition() != null ? l1.getPosition() : Integer.MAX_VALUE;
-                            Integer pos2 = l2.getPosition() != null ? l2.getPosition() : Integer.MAX_VALUE;
-                            return Integer.compare(pos1, pos2);
-                        })
-                        .collect(Collectors.toList());
-                
-                // Find first VIDEO lesson with videoUrl
-                for (Lesson lesson : sortedLessons) {
-                    if (lesson.getContentType() == EContentType.VIDEO 
-                            && lesson.getVideoUrl() != null 
-                            && !lesson.getVideoUrl().trim().isEmpty()) {
-                        firstPreviewLessonId = lesson.getId();
-                        break;
-                    }
-                }
-                
-                // If found, stop searching
-                if (firstPreviewLessonId != null) {
-                    break;
-                }
-            }
-        }
-        
-        final Long finalPreviewLessonId = firstPreviewLessonId; // For use in lambda
-        
-        // Map to DTO - Only the first lesson of the entire course is preview
-        return chapters.stream()
-                .filter(chapter -> chapter != null) // Filter out null chapters
-                .sorted((c1, c2) -> {
-                    Integer pos1 = c1.getPosition() != null ? c1.getPosition() : Integer.MAX_VALUE;
-                    Integer pos2 = c2.getPosition() != null ? c2.getPosition() : Integer.MAX_VALUE;
-                    return Integer.compare(pos1, pos2);
-                })
-                .map(chapter -> {
-                    // Get lessons safely - handle null/empty list
-                    List<Lesson> lessons = chapter.getLessons();
-                    if (lessons == null || lessons.isEmpty()) {
-                        // Return chapter with empty lessons list
-                        return ChapterResponse.fromEntity(chapter, List.of());
-                    }
-                    
-                    // Sort lessons by position (handle null positions)
-                    List<Lesson> sortedLessons = lessons.stream()
-                            .filter(lesson -> lesson != null) // Filter out null lessons
-                            .sorted((l1, l2) -> {
-                                Integer pos1 = l1.getPosition() != null ? l1.getPosition() : Integer.MAX_VALUE;
-                                Integer pos2 = l2.getPosition() != null ? l2.getPosition() : Integer.MAX_VALUE;
-                                return Integer.compare(pos1, pos2);
-                            })
-                            .collect(Collectors.toList());
-                    
-                    if (sortedLessons.isEmpty()) {
-                        return ChapterResponse.fromEntity(chapter, List.of());
-                    }
-                    
-                    // Map lessons to DTOs
-                    List<LessonResponse> lessonResponses = sortedLessons.stream()
-                            .map(lesson -> {
-                                // Check if this is the first VIDEO lesson with videoUrl (for preview)
-                                boolean isPreviewLesson = finalPreviewLessonId != null && finalPreviewLessonId.equals(lesson.getId());
-                                
-                                // Create response - for preview, always set isCompleted = false (no user progress)
-                                LessonResponse response = new LessonResponse();
-                                response.setId(lesson.getId());
-                                response.setTitle(lesson.getTitle());
-                                response.setContentType(lesson.getContentType());
-                                response.setDurationInMinutes(lesson.getDurationInMinutes());
-                                response.setPosition(lesson.getPosition());
-                                response.setCompleted(false); // No progress tracking for guests
-                                
-                                // Set isPreview: Only the first VIDEO lesson with videoUrl is preview
-                                if (isPreviewLesson && lesson.getVideoUrl() != null && !lesson.getVideoUrl().trim().isEmpty()) {
-                                    response.setIsPreview(true);
-                                    // Use videoUrl as-is (backend already stores full URL from FileStorageService)
-                                    // FileStorageService returns: lessonVideoBaseUrl + "/" + fileName
-                                    // Which is already: http://localhost:8080/api/files/lessons/videos/filename.mp4
-                                    response.setVideoUrl(lesson.getVideoUrl());
-                                } else {
-                                    response.setIsPreview(false);
-                                    // Don't set videoUrl for non-preview lessons
-                                }
-                                
-                                // Note: We don't set documentUrl or content for preview (guests can't access full content)
-                                
-                                return response;
-                            })
-                            .collect(Collectors.toList());
-                    
-                    return ChapterResponse.fromEntity(chapter, lessonResponses);
-                })
-                .collect(Collectors.toList());
-    }
-
-    // Chức năng 11: Lấy danh sách khóa học của học viên (My Courses)
+    // Chức năng 10: Lấy danh sách khóa học của học viên (My Courses)
     @Transactional(readOnly = true) // IMPORTANT: Add @Transactional to avoid LazyInitializationException
     public List<CourseResponse> getMyCourses(Long userId) {
         System.out.println("CourseService.getMyCourses: Fetching courses for user ID: " + userId);

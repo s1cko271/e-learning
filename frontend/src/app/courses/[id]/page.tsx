@@ -15,8 +15,6 @@ import {
   PlayCircle,
   FileText,
   Download,
-  Share2,
-  Heart,
   Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -37,7 +35,6 @@ import { useCourse } from '@/hooks/useCourses';
 import { useAuthStore } from '@/stores/authStore';
 import { ROUTES, COURSE_LEVEL_LABELS } from '@/lib/constants';
 import { Skeleton } from '@/components/ui/skeleton';
-import VideoPlayerModal from '@/components/course/VideoPlayerModal';
 import { ReviewSection } from '@/components/course/ReviewSection';
 import { getCourseContent, type ChapterResponse, type LessonResponse } from '@/services/contentService';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -52,87 +49,22 @@ export default function CourseDetailPage() {
   const { course, isLoading } = useCourse(params.id as string);
   const { isAuthenticated, user } = useAuthStore();
   const { addToCart, isLoading: isAddingToCart } = useCartStore();
-  const [previewVideo, setPreviewVideo] = useState<{ url: string; title: string } | null>(null);
   const { addToast } = useUIStore();
   const queryClient = useQueryClient();
   const [isEnrolling, setIsEnrolling] = React.useState(false);
   
-  // Fetch curriculum data (chapters and lessons) - Use public preview endpoint
-  // Only use full content API if user is definitely enrolled (isEnrolled === true)
-  // Otherwise, use preview endpoint to avoid 403 errors
+  // Fetch curriculum data (chapters and lessons) - Only for enrolled users
   const { data: curriculum, isLoading: isLoadingCurriculum } = useQuery<ChapterResponse[]>({
-    queryKey: ['course-preview', params.id, course?.isEnrolled],
+    queryKey: ['course-content', params.id, course?.isEnrolled],
     queryFn: async () => {
-      try {
-        // Only try to fetch full content if user is authenticated AND definitely enrolled
-        // Check isEnrolled === true (not just truthy) to avoid calling API unnecessarily
+      // Only fetch content if user is authenticated AND enrolled
         if (isAuthenticated && course?.isEnrolled === true) {
-          try {
             return await getCourseContent(Number(params.id));
-          } catch (error: any) {
-            // If error occurs even though enrolled, fall back to preview
-            // Silently handle 400/403 errors - they're expected in edge cases
-            if (error.response?.status === 400 || error.response?.status === 403 || error.response?.status === 401) {
-              // Fall back to preview endpoint silently
-            } else {
-              // Log unexpected errors only
-              console.error('Error fetching course content:', error);
-            }
-          }
-        }
-        // Use public preview endpoint (works for guests and non-enrolled users)
-        // This is the default for all users who are not enrolled
-        const response = await apiClient.get<ChapterResponse[]>(`/v1/courses/${params.id}/preview`);
-        return response.data;
-      } catch (error) {
-        console.error('Failed to fetch curriculum:', error);
-        return [];
       }
+      return [];
     },
-    enabled: !!params.id && !!course,
+    enabled: !!params.id && !!course && isAuthenticated && course?.isEnrolled === true,
   });
-  
-  const handlePreviewLesson = (lesson: LessonResponse) => {
-    // Only allow preview if backend explicitly marks it as preview
-    // Only the first VIDEO lesson of the course is marked as preview
-    if (lesson.isPreview === true && lesson.videoUrl) {
-      // Process videoUrl to ensure it's a valid absolute URL
-      let videoUrl = lesson.videoUrl.trim();
-      
-      // If it's a relative path starting with /api/files, prepend API base URL
-      if (videoUrl.startsWith('/api/files')) {
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
-        // Remove /api from the path if API_BASE_URL already includes it
-        if (apiBaseUrl.endsWith('/api')) {
-          videoUrl = apiBaseUrl + videoUrl;
-        } else {
-          videoUrl = apiBaseUrl + '/api' + videoUrl;
-        }
-      } else if (!videoUrl.startsWith('http://') && !videoUrl.startsWith('https://')) {
-        // If it's just a filename or relative path, construct full URL
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
-        videoUrl = `${apiBaseUrl}/files/lessons/videos/${videoUrl}`;
-      }
-      
-      // Use processed videoUrl from backend (backend returns videoUrl only for preview lessons)
-      setPreviewVideo({
-        url: videoUrl,
-        title: lesson.title,
-      });
-    } else {
-      // Not a preview lesson - require authentication and enrollment
-      if (!isAuthenticated) {
-        router.push(ROUTES.LOGIN);
-      } else {
-        // Authenticated but not enrolled - redirect to enrollment/checkout
-        if (course.price > 0) {
-          router.push(ROUTES.CHECKOUT(course.id.toString()));
-        } else {
-          router.push(ROUTES.LEARN(course.id.toString()));
-        }
-      }
-    }
-  };
   
   if (isLoading) {
     return (
@@ -394,14 +326,6 @@ export default function CourseDetailPage() {
                             : 'Thêm vào giỏ hàng'}
                         </Button>
                       )}
-                      <Button 
-                        variant="outline" 
-                        className="w-full"
-                        size="lg"
-                      >
-                        <Heart className="h-4 w-4 mr-2" />
-                        Thêm vào yêu thích
-                      </Button>
                     </div>
                     
                     <Separator />
@@ -428,14 +352,6 @@ export default function CourseDetailPage() {
                         </li>
                       </ul>
                     </div>
-                    
-                    <Separator />
-                    
-                    {/* Share */}
-                    <Button variant="ghost" className="w-full">
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Chia sẻ khóa học
-                    </Button>
                   </CardContent>
                 </Card>
               </div>
@@ -563,17 +479,8 @@ export default function CourseDetailPage() {
                                             {Math.floor(lesson.durationInMinutes / 60)}:{(lesson.durationInMinutes % 60).toString().padStart(2, '0')}
                                           </span>
                                         )}
-                                        {/* Show preview button for preview lessons OR lock icon for locked lessons */}
-                                        {lesson.isPreview === true ? (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handlePreviewLesson(lesson)}
-                                            className="ml-2"
-                                          >
-                                            Xem trước
-                                          </Button>
-                                        ) : !isAuthenticated ? (
+                                        {/* Show lock icon for non-enrolled users */}
+                                        {!isAuthenticated ? (
                                           <div className="flex items-center gap-1 ml-2">
                                             <Lock className="h-4 w-4 text-muted-foreground" />
                                             <Button
@@ -716,15 +623,6 @@ export default function CourseDetailPage() {
       
       <Footer />
       
-      {/* Video Player Modal */}
-      {previewVideo && (
-        <VideoPlayerModal
-          isOpen={!!previewVideo}
-          onClose={() => setPreviewVideo(null)}
-          videoUrl={previewVideo.url}
-          title={previewVideo.title}
-        />
-      )}
     </div>
   );
 }

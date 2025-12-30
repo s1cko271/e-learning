@@ -35,14 +35,6 @@ public class User {
 
     private String expertise;
 
-    private String linkedin;
-
-    private String github;
-
-    private String twitter;
-
-    private String website;
-
     @Column(length = 20)
     private String phoneNumber;
 

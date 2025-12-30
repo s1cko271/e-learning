@@ -18,10 +18,6 @@ public class ProfileResponse {
     private String address;
     private String bio;
     private String expertise;
-    private String linkedin;
-    private String github;
-    private String twitter;
-    private String website;
     private String avatarUrl;
     private Boolean emailNotificationEnabled;
     private LocalDateTime createdAt;

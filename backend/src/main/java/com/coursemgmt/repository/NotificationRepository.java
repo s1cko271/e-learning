@@ -4,6 +4,7 @@ import com.coursemgmt.model.Notification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -25,5 +26,10 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     // Đánh dấu tất cả thông báo là đã đọc
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.user.id = :userId AND n.isRead = false")
     void markAllAsRead(@Param("userId") Long userId);
+    
+    // Xóa tất cả notifications liên quan đến một course
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.course.id = :courseId")
+    void deleteByCourseId(@Param("courseId") Long courseId);
 }
 

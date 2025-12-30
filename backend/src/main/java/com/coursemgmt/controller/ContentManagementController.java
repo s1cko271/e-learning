@@ -2,6 +2,7 @@ package com.coursemgmt.controller;
 
 import com.coursemgmt.dto.ChapterRequest;
 import com.coursemgmt.dto.LessonRequest;
+import com.coursemgmt.dto.LessonResponse;
 import com.coursemgmt.dto.MessageResponse;
 import com.coursemgmt.model.Chapter;
 import com.coursemgmt.model.Lesson;
@@ -76,6 +77,22 @@ public class ContentManagementController {
     public ResponseEntity<MessageResponse> deleteLesson(@PathVariable Long lessonId) {
         contentService.deleteLesson(lessonId);
         return ResponseEntity.ok(new MessageResponse("Lesson deleted successfully!"));
+    }
+
+    // API để giảng viên preview bài học trước khi publish
+    @GetMapping("/lessons/{lessonId}/preview")
+    @PreAuthorize("hasRole('ADMIN') or @courseSecurityService.isInstructorOfLesson(authentication, #lessonId)")
+    public ResponseEntity<?> previewLesson(@PathVariable Long lessonId) {
+        try {
+            Lesson lesson = contentService.getLessonById(lessonId);
+            return ResponseEntity.ok(LessonResponse.fromEntity(lesson, false));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
+                    .body(new MessageResponse("Lesson not found: " + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Error previewing lesson: " + e.getMessage()));
+        }
     }
 
     // --- API IMPORT/EXPORT MỚI ---

@@ -21,7 +21,8 @@ type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
 export default function ForgotPasswordPage() {
   const [isSuccess, setIsSuccess] = React.useState(false);
-  const { forgotPassword, isForgotPasswordLoading } = useAuth();
+  const [submittedEmail, setSubmittedEmail] = React.useState<string>('');
+  const { forgotPasswordAsync, isForgotPasswordLoading } = useAuth();
   
   const {
     register,
@@ -34,9 +35,18 @@ export default function ForgotPasswordPage() {
   
   const email = watch('email');
   
-  const onSubmit = (data: ForgotPasswordFormData) => {
-    forgotPassword(data.email);
-    setIsSuccess(true);
+  const onSubmit = async (data: ForgotPasswordFormData) => {
+    try {
+      // Gọi API và đợi kết quả
+      await forgotPasswordAsync(data.email);
+      // Chỉ set success khi API thành công (không throw error)
+      setSubmittedEmail(data.email);
+      setIsSuccess(true);
+    } catch (error) {
+      // Nếu có lỗi (email không tồn tại), không set success
+      // Error đã được xử lý và hiển thị toast trong useAuth hook
+      setIsSuccess(false);
+    }
   };
   
   if (isSuccess) {
@@ -62,7 +72,7 @@ export default function ForgotPasswordPage() {
             </CardHeader>
             
             <CardContent className="text-center">
-              <p className="text-sm font-medium">{email}</p>
+              <p className="text-sm font-medium">{submittedEmail || email}</p>
               <p className="mt-4 text-sm text-muted-foreground">
                 Vui lòng kiểm tra hộp thư đến và làm theo hướng dẫn để đặt lại mật khẩu.
               </p>

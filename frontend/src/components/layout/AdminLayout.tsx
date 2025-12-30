@@ -79,19 +79,48 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [isInitialized, setIsInitialized] = React.useState(false);
   
+  // Check if token exists and is valid
+  const hasValidToken = React.useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    return !!token && isAuthenticated;
+  }, [isAuthenticated]);
+  
   // Fetch unread notification count
   const { data: unreadCount = 0, refetch: refetchUnreadCount } = useQuery({
     queryKey: ['notifications-unread-count'],
-    queryFn: getUnreadCount,
-    enabled: isAuthenticated,
+    queryFn: async () => {
+      try {
+        return await getUnreadCount();
+      } catch (error: any) {
+        // Silently handle 403 errors
+        if (error?.response?.status === 403) {
+          return 0;
+        }
+        throw error;
+      }
+    },
+    enabled: hasValidToken,
     refetchInterval: 30000,
+    retry: false, // Don't retry on any error
   });
   
   // Fetch notifications
   const { data: notificationsData, refetch: refetchNotifications } = useQuery({
     queryKey: ['notifications'],
-    queryFn: () => getNotifications(0, 10),
-    enabled: isAuthenticated,
+    queryFn: async () => {
+      try {
+        return await getNotifications(0, 10);
+      } catch (error: any) {
+        // Silently handle 403 errors
+        if (error?.response?.status === 403) {
+          return { content: [], totalElements: 0, totalPages: 0, number: 0, size: 10 };
+        }
+        throw error;
+      }
+    },
+    enabled: hasValidToken,
+    retry: false, // Don't retry on any error
   });
   
   const notifications = notificationsData?.content || [];

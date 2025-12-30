@@ -10,11 +10,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ROUTES } from '@/lib/constants';
+import { ROUTES, STORAGE_KEYS } from '@/lib/constants';
 import apiClient from '@/lib/api';
 import type { Course } from '@/types';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function MyCoursesPage() {
+  const { isAuthenticated } = useAuthStore();
   const [viewMode, setViewMode] = React.useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [sortBy, setSortBy] = React.useState('recent');
@@ -23,20 +25,36 @@ export default function MyCoursesPage() {
   
   React.useEffect(() => {
     const fetchCourses = async () => {
+      // Check if user is authenticated and has token
+      if (typeof window === 'undefined') {
+        setIsLoading(false);
+        return;
+      }
+      
+      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      if (!token || !isAuthenticated) {
+        setIsLoading(false);
+        setCourses([]);
+        return;
+      }
+      
       try {
-        console.log('Fetching my courses...');
         const response = await apiClient.get<Course[]>('/v1/courses/my-courses');
-        console.log('MY COURSES DATA:', response.data);
         
         // Ensure we have an array
         if (Array.isArray(response.data)) {
           setCourses(response.data);
         } else {
-          console.warn('Response is not an array:', response.data);
           setCourses([]);
         }
-      } catch (error) {
-        console.error('Error fetching courses:', error);
+      } catch (error: any) {
+        // Silently handle 403 errors (user not authenticated)
+        if (error.response?.status === 403 || error.response?.status === 401) {
+          setCourses([]);
+        } else {
+          // Only log non-auth errors
+          console.error('Error fetching courses:', error);
+        }
         setCourses([]);
       } finally {
         setIsLoading(false);
@@ -44,7 +62,7 @@ export default function MyCoursesPage() {
     };
     
     fetchCourses();
-  }, []);
+  }, [isAuthenticated]);
   
   // Filter courses by status using enrollmentStatus
   const inProgressCourses = Array.isArray(courses) 

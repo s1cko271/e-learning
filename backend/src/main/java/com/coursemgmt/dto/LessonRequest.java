@@ -23,4 +23,6 @@ public class LessonRequest {
 
     @NotNull
     private Integer durationInMinutes; // Thời lượng
+
+    private Boolean isPreview = false; // Cho phép giảng viên preview bài học trước khi publish
 }

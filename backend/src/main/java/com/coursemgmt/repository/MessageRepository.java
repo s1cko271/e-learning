@@ -15,9 +15,19 @@ import java.util.Optional;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
     
-    Page<Message> findByConversationIdOrderByCreatedAtDesc(Long conversationId, Pageable pageable);
+    @Query("SELECT m FROM Message m " +
+           "JOIN FETCH m.sender " +
+           "JOIN FETCH m.conversation " +
+           "WHERE m.conversation.id = :conversationId " +
+           "ORDER BY m.createdAt DESC")
+    Page<Message> findByConversationIdOrderByCreatedAtDesc(@Param("conversationId") Long conversationId, Pageable pageable);
     
-    List<Message> findByConversationIdOrderByCreatedAtAsc(Long conversationId);
+    @Query("SELECT m FROM Message m " +
+           "JOIN FETCH m.sender " +
+           "JOIN FETCH m.conversation " +
+           "WHERE m.conversation.id = :conversationId " +
+           "ORDER BY m.createdAt ASC")
+    List<Message> findByConversationIdOrderByCreatedAtAsc(@Param("conversationId") Long conversationId);
     
     @Query("SELECT COUNT(m) FROM Message m " +
            "JOIN m.conversation c " +

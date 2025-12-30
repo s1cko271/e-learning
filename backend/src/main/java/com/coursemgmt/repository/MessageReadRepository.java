@@ -17,7 +17,9 @@ public interface MessageReadRepository extends JpaRepository<MessageRead, Long> 
     List<MessageRead> findByMessageId(Long messageId);
     
     @Query("SELECT mr FROM MessageRead mr " +
-           "WHERE mr.message.conversation.id = :conversationId " +
+           "JOIN FETCH mr.message m " +
+           "JOIN FETCH mr.user " +
+           "WHERE m.conversation.id = :conversationId " +
            "AND mr.user.id = :userId")
     List<MessageRead> findByConversationIdAndUserId(@Param("conversationId") Long conversationId, 
                                                      @Param("userId") Long userId);

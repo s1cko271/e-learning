@@ -19,6 +19,7 @@ public interface ConversationParticipantRepository extends JpaRepository<Convers
     List<ConversationParticipant> findByUserId(Long userId);
     
     @Query("SELECT cp FROM ConversationParticipant cp " +
+           "JOIN FETCH cp.user " +
            "WHERE cp.conversation.id = :conversationId AND cp.user.id != :userId")
     List<ConversationParticipant> findOtherParticipants(@Param("conversationId") Long conversationId, 
                                                         @Param("userId") Long userId);

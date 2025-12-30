@@ -133,11 +133,6 @@ export interface Instructor {
   avatar?: string;
   bio?: string;
   expertise?: string[];
-  socialLinks?: {
-    linkedin?: string;
-    twitter?: string;
-    website?: string;
-  };
   totalCourses?: number;
   totalStudents?: number;
   averageRating?: number;
@@ -164,7 +159,6 @@ export interface Lesson {
   sectionId: number;
   videoUrl?: string;
   articleContent?: string;
-  isPreview: boolean;
   isCompleted?: boolean;
   resources?: Resource[];
 }

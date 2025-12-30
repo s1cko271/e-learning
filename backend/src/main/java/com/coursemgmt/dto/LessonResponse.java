@@ -16,13 +16,11 @@ public class LessonResponse {
     private String content;
     private Integer durationInMinutes;
     private Integer position;
+    private Boolean isPreview; // Cho phép giảng viên preview bài học trước khi publish
 
     // Dùng cho chức năng "Theo dõi tiến độ"
     @JsonProperty("isCompleted")
     private boolean isCompleted;
-
-    // Lesson có thể xem trước (cho guests)
-    private Boolean isPreview;
 
     public static LessonResponse fromEntity(Lesson lesson, boolean isCompleted) {
         LessonResponse dto = new LessonResponse();
@@ -31,8 +29,8 @@ public class LessonResponse {
         dto.setContentType(lesson.getContentType());
         dto.setDurationInMinutes(lesson.getDurationInMinutes());
         dto.setPosition(lesson.getPosition());
-        dto.setCompleted(isCompleted);
         dto.setIsPreview(lesson.getIsPreview() != null ? lesson.getIsPreview() : false);
+        dto.setCompleted(isCompleted);
 
         // Trả về nội dung chi tiết cho học viên đã đăng ký (không cần đợi hoàn thành)
         // Học viên cần xem video để học, không phải chỉ khi đã hoàn thành

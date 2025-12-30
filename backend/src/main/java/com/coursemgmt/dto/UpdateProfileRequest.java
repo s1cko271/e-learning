@@ -24,18 +24,6 @@ public class UpdateProfileRequest {
     @Size(max = 200, message = "Chuyên môn không được quá 200 ký tự")
     private String expertise;
 
-    @Size(max = 255, message = "LinkedIn URL không được quá 255 ký tự")
-    private String linkedin;
-
-    @Size(max = 255, message = "GitHub URL không được quá 255 ký tự")
-    private String github;
-
-    @Size(max = 255, message = "Twitter URL không được quá 255 ký tự")
-    private String twitter;
-
-    @Size(max = 255, message = "Website URL không được quá 255 ký tự")
-    private String website;
-
     // Note: phoneNumber and address fields are defined here for future use
     // Currently, User entity does not have these fields, so they will be ignored
     @Size(max = 20, message = "Số điện thoại không được quá 20 ký tự")

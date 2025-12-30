@@ -40,9 +40,9 @@ public class ChatService {
         
         // Validate enrollment: If student wants to chat with instructor, check enrollment
         boolean isCurrentUserStudent = currentUser.getRoles().stream()
-                .anyMatch(r -> r.getName().equals("ROLE_STUDENT"));
+                .anyMatch(r -> r.getName() == ERole.ROLE_STUDENT);
         boolean isOtherUserInstructor = otherUser.getRoles().stream()
-                .anyMatch(r -> r.getName().equals("ROLE_LECTURER"));
+                .anyMatch(r -> r.getName() == ERole.ROLE_LECTURER);
         
         if (isCurrentUserStudent && isOtherUserInstructor) {
             // Student chatting with instructor - must be enrolled in at least one course
@@ -104,12 +104,25 @@ public class ChatService {
     
     @Transactional(readOnly = true)
     public List<ConversationResponse> getUserConversations(Long userId) {
-        List<Conversation> conversations = conversationRepository
-                .findByUserIdOrderByLastMessageAtDesc(userId);
-        
-        return conversations.stream()
-                .map(conv -> getConversationResponse(conv, userId))
-                .collect(Collectors.toList());
+        try {
+            List<Conversation> conversations = conversationRepository
+                    .findByUserIdOrderByLastMessageAtDesc(userId);
+            
+            return conversations.stream()
+                    .map(conv -> {
+                        try {
+                            return getConversationResponse(conv, userId);
+                        } catch (Exception e) {
+                            log.error("Error processing conversation {}: {}", conv.getId(), e.getMessage(), e);
+                            // Return a minimal response to avoid breaking the entire list
+                            return ConversationResponse.fromEntity(conv, null, null, 0L);
+                        }
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error getting user conversations for user {}: {}", userId, e.getMessage(), e);
+            throw new RuntimeException("Error fetching conversations: " + e.getMessage(), e);
+        }
     }
     
     @Transactional(readOnly = true)
@@ -165,15 +178,28 @@ public class ChatService {
         
         return messages.map(msg -> {
             MessageRead read = reads.stream()
-                    .filter(r -> r.getMessage().getId().equals(msg.getId()))
+                    .filter(r -> {
+                        try {
+                            return r.getMessage() != null && r.getMessage().getId() != null && 
+                                   r.getMessage().getId().equals(msg.getId());
+                        } catch (Exception e) {
+                            log.warn("Error checking message read status: {}", e.getMessage());
+                            return false;
+                        }
+                    })
                     .findFirst()
                     .orElse(null);
             
-            return ChatMessageResponse.fromEntity(
-                    msg,
-                    read != null,
-                    read != null ? read.getReadAt() : null
-            );
+            try {
+                return ChatMessageResponse.fromEntity(
+                        msg,
+                        read != null,
+                        read != null ? read.getReadAt() : null
+                );
+            } catch (Exception e) {
+                log.error("Error creating ChatMessageResponse for message {}: {}", msg.getId(), e.getMessage(), e);
+                throw new RuntimeException("Error processing message: " + e.getMessage(), e);
+            }
         });
     }
     
@@ -275,45 +301,55 @@ public class ChatService {
     }
     
     private ConversationResponse getConversationResponse(Conversation conversation, Long currentUserId) {
-        // Get other participant
-        List<ConversationParticipant> otherParticipants = participantRepository
-                .findOtherParticipants(conversation.getId(), currentUserId);
-        
-        ConversationResponse.UserInfo otherParticipant = null;
-        if (!otherParticipants.isEmpty()) {
-            User otherUser = otherParticipants.get(0).getUser();
-            otherParticipant = ConversationResponse.UserInfo.builder()
-                    .id(otherUser.getId())
-                    .fullName(otherUser.getFullName())
-                    .avatar(otherUser.getAvatarUrl())
-                    .role(otherParticipants.get(0).getRole().name())
-                    .build();
+        try {
+            // Get other participant
+            List<ConversationParticipant> otherParticipants = participantRepository
+                    .findOtherParticipants(conversation.getId(), currentUserId);
+            
+            ConversationResponse.UserInfo otherParticipant = null;
+            if (!otherParticipants.isEmpty()) {
+                ConversationParticipant participant = otherParticipants.get(0);
+                User otherUser = participant.getUser();
+                if (otherUser != null) {
+                    otherParticipant = ConversationResponse.UserInfo.builder()
+                            .id(otherUser.getId())
+                            .fullName(otherUser.getFullName())
+                            .avatar(otherUser.getAvatarUrl())
+                            .role(participant.getRole() != null ? participant.getRole().name() : "STUDENT")
+                            .build();
+                }
+            }
+            
+            // Get last message - query separately to avoid LAZY loading issues
+            ChatMessageResponse lastMessage = null;
+            List<Message> messages = messageRepository.findByConversationIdOrderByCreatedAtAsc(conversation.getId());
+            if (!messages.isEmpty()) {
+                Message lastMsg = messages.get(messages.size() - 1); // Last message (most recent)
+                if (lastMsg != null && lastMsg.getSender() != null) {
+                    MessageRead read = messageReadRepository
+                            .findByMessageIdAndUserId(lastMsg.getId(), currentUserId)
+                            .orElse(null);
+                    lastMessage = ChatMessageResponse.fromEntity(
+                            lastMsg,
+                            read != null,
+                            read != null ? read.getReadAt() : null
+                    );
+                }
+            }
+            
+            // Get unread count
+            Long unreadCount = getUnreadCount(conversation.getId(), currentUserId);
+            
+            return ConversationResponse.fromEntity(conversation, otherParticipant, lastMessage, unreadCount);
+        } catch (Exception e) {
+            log.error("Error creating ConversationResponse for conversation {}: {}", conversation.getId(), e.getMessage(), e);
+            throw new RuntimeException("Error processing conversation: " + e.getMessage(), e);
         }
-        
-        // Get last message - query separately to avoid LAZY loading issues
-        ChatMessageResponse lastMessage = null;
-        List<Message> messages = messageRepository.findByConversationIdOrderByCreatedAtAsc(conversation.getId());
-        if (!messages.isEmpty()) {
-            Message lastMsg = messages.get(messages.size() - 1); // Last message (most recent)
-            MessageRead read = messageReadRepository
-                    .findByMessageIdAndUserId(lastMsg.getId(), currentUserId)
-                    .orElse(null);
-            lastMessage = ChatMessageResponse.fromEntity(
-                    lastMsg,
-                    read != null,
-                    read != null ? read.getReadAt() : null
-            );
-        }
-        
-        // Get unread count
-        Long unreadCount = getUnreadCount(conversation.getId(), currentUserId);
-        
-        return ConversationResponse.fromEntity(conversation, otherParticipant, lastMessage, unreadCount);
     }
     
     private ConversationParticipant.ParticipantRole getUserRole(User user) {
         return user.getRoles().stream()
-                .anyMatch(role -> role.getName().equals("ROLE_LECTURER")) 
+                .anyMatch(role -> role.getName() == ERole.ROLE_LECTURER) 
                 ? ConversationParticipant.ParticipantRole.INSTRUCTOR
                 : ConversationParticipant.ParticipantRole.STUDENT;
     }

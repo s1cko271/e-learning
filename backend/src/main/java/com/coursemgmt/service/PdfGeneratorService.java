@@ -50,7 +50,11 @@ public class PdfGeneratorService {
     private byte[] convertHtmlToPdf(String htmlContent) throws IOException {
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             PdfRendererBuilder builder = new PdfRendererBuilder();
+            
+            // Set UTF-8 encoding explicitly
+            // OpenHTMLToPDF will automatically handle UTF-8 if HTML has proper charset declaration
             builder.withHtmlContent(htmlContent, null);
+            
             builder.toStream(outputStream);
             builder.run();
             
@@ -67,24 +71,28 @@ public class PdfGeneratorService {
      * @throws IOException Nếu có lỗi khi generate hoặc lưu PDF
      */
     public String generateCertificatePdfAndSave(Certificate certificate) throws IOException {
+        // Convert to absolute path to match WebMvcConfig
+        java.nio.file.Path storageDir = java.nio.file.Paths.get(storagePath).toAbsolutePath().normalize();
+        
         // Ensure storage directory exists
-        File directory = new File(storagePath);
+        File directory = storageDir.toFile();
         if (!directory.exists()) {
             directory.mkdirs();
         }
         
         String filename = "certificate_" + certificate.getCertificateCode() + ".pdf";
-        String filepath = storagePath + File.separator + filename;
+        java.nio.file.Path filepath = storageDir.resolve(filename);
         
         // Generate PDF bytes
         byte[] pdfBytes = generateCertificatePdf(certificate);
         
         // Save PDF to file
-        try (FileOutputStream fos = new FileOutputStream(filepath)) {
+        try (FileOutputStream fos = new FileOutputStream(filepath.toFile())) {
             fos.write(pdfBytes);
             fos.flush();
         }
         
+        // Return URL that matches the resource handler pattern
         return baseUrl + "/" + filename;
     }
 
@@ -102,11 +110,20 @@ public class PdfGeneratorService {
         String issuedDate = certificate.getIssuedAt().format(formatter);
         String certificateCode = certificate.getCertificateCode();
         
+        // Escape HTML entities to prevent XSS and ensure proper encoding
+        String safeUserName = escapeHtml(userName);
+        String safeCourseTitle = escapeHtml(courseTitle);
+        String safeInstructorName = escapeHtml(instructorName);
+        String safeIssuedDate = escapeHtml(issuedDate);
+        String safeCertificateCode = escapeHtml(certificateCode);
+        
         // Use String.format() instead of .formatted() to avoid conflict with # in CSS
+        // Ensure UTF-8 encoding is properly declared
         return String.format("""
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta charset="UTF-8" />
     <style>
         @page {
@@ -114,7 +131,7 @@ public class PdfGeneratorService {
             margin: 0;
         }
         body {
-            font-family: Arial, sans-serif;
+            font-family: "DejaVu Sans", "Arial Unicode MS", "Noto Sans", Arial, sans-serif;
             margin: 0;
             padding: 40px;
             background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
@@ -130,38 +147,47 @@ public class PdfGeneratorService {
             font-size: 48px;
             color: #667eea;
             margin-bottom: 20px;
+            font-family: "DejaVu Sans", "Arial Unicode MS", "Noto Sans", Arial, sans-serif;
         }
         h2 {
             font-size: 24px;
             color: #333;
             margin-bottom: 40px;
+            font-family: "DejaVu Sans", "Arial Unicode MS", "Noto Sans", Arial, sans-serif;
         }
         .recipient {
             font-size: 36px;
             color: #764ba2;
             margin: 30px 0;
             font-weight: bold;
+            font-family: "DejaVu Sans", "Arial Unicode MS", "Noto Sans", Arial, sans-serif;
         }
         .course {
             font-size: 28px;
             color: #333;
             margin: 20px 0;
+            font-family: "DejaVu Sans", "Arial Unicode MS", "Noto Sans", Arial, sans-serif;
         }
         .instructor {
             font-size: 18px;
             color: #666;
             margin-top: 40px;
+            font-family: "DejaVu Sans", "Arial Unicode MS", "Noto Sans", Arial, sans-serif;
         }
         .date {
             font-size: 16px;
             color: #999;
             margin-top: 20px;
+            font-family: "DejaVu Sans", "Arial Unicode MS", "Noto Sans", Arial, sans-serif;
         }
         .code {
             font-size: 14px;
             color: #999;
             margin-top: 30px;
-            font-family: monospace;
+            font-family: "DejaVu Sans Mono", "Courier New", monospace;
+        }
+        p {
+            font-family: "DejaVu Sans", "Arial Unicode MS", "Noto Sans", Arial, sans-serif;
         }
     </style>
 </head>
@@ -192,7 +218,22 @@ public class PdfGeneratorService {
     </div>
 </body>
 </html>
-                """, userName, courseTitle, instructorName, issuedDate, certificateCode);
+                """, safeUserName, safeCourseTitle, safeInstructorName, safeIssuedDate, safeCertificateCode);
+    }
+    
+    /**
+     * Escape HTML special characters to prevent XSS and ensure proper rendering
+     */
+    private String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }
 

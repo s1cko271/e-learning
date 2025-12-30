@@ -18,6 +18,9 @@ spring.jpa.properties.hibernate.use_sql_comments=true
 # Server Configuration
 server.port=8080
 
+# Frontend URL Configuration
+app.frontend.url=http://localhost:3000
+
 # VNPay Configuration
 vnpay.url=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
 vnpay.return-url=http://localhost:3000/payment/callback

@@ -198,6 +198,7 @@ export const useAuth = () => {
     register: registerMutation.mutate,
     registerAsync: registerMutation.mutateAsync,
     forgotPassword: forgotPasswordMutation.mutate,
+    forgotPasswordAsync: forgotPasswordMutation.mutateAsync,
     resetPassword: resetPasswordMutation.mutate,
     logout,
     updateProfile: updateProfileMutation.mutate,

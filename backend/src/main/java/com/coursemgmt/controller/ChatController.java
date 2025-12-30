@@ -1,103 +1,125 @@
 package com.coursemgmt.controller;
 
 import com.coursemgmt.dto.*;
-import com.coursemgmt.dto.ChatMessageResponse;
-import com.coursemgmt.security.services.UserDetailsImpl;
 import com.coursemgmt.service.ChatService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import com.coursemgmt.security.services.UserDetailsImpl;
+
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
-@PreAuthorize("isAuthenticated()")
+@CrossOrigin(origins = "*", maxAge = 3600)
 public class ChatController {
-    
+
     private final ChatService chatService;
-    
-    private Long getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
-            return ((UserDetailsImpl) authentication.getPrincipal()).getId();
-        }
-        throw new RuntimeException("User not authenticated");
-    }
-    
+
     @PostMapping("/conversations")
-    public ResponseEntity<ConversationResponse> createConversation(@Valid @RequestBody CreateConversationRequest request) {
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ConversationResponse> createConversation(@RequestBody CreateConversationRequest request) {
         Long currentUserId = getCurrentUserId();
-        ConversationResponse conversation = chatService.createConversation(currentUserId, request);
-        return ResponseEntity.ok(conversation);
+        ConversationResponse response = chatService.createConversation(currentUserId, request);
+        return ResponseEntity.ok(response);
     }
-    
+
     @GetMapping("/conversations")
-    public ResponseEntity<java.util.List<ConversationResponse>> getUserConversations() {
-        Long currentUserId = getCurrentUserId();
-        return ResponseEntity.ok(chatService.getUserConversations(currentUserId));
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<ConversationResponse>> getConversations() {
+        try {
+            Long currentUserId = getCurrentUserId();
+            List<ConversationResponse> conversations = chatService.getUserConversations(currentUserId);
+            return ResponseEntity.ok(conversations);
+        } catch (Exception e) {
+            throw new RuntimeException("Error fetching conversations: " + e.getMessage(), e);
+        }
     }
-    
+
     @GetMapping("/conversations/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ConversationResponse> getConversation(@PathVariable Long id) {
         Long currentUserId = getCurrentUserId();
-        return ResponseEntity.ok(chatService.getConversation(id, currentUserId));
+        ConversationResponse conversation = chatService.getConversation(id, currentUserId);
+        return ResponseEntity.ok(conversation);
     }
-    
+
+    @PostMapping("/messages")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ChatMessageResponse> sendMessage(@RequestBody SendMessageRequest request) {
+        Long currentUserId = getCurrentUserId();
+        ChatMessageResponse response = chatService.sendMessage(currentUserId, request);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/conversations/{id}/messages")
-    public ResponseEntity<Page<ChatMessageResponse>> getMessages(
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<org.springframework.data.domain.Page<ChatMessageResponse>> getMessages(
             @PathVariable Long id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        Long currentUserId = getCurrentUserId();
-        return ResponseEntity.ok(chatService.getMessages(id, currentUserId, page, size));
+        try {
+            Long currentUserId = getCurrentUserId();
+            org.springframework.data.domain.Page<ChatMessageResponse> messages = chatService.getMessages(id, currentUserId, page, size);
+            return ResponseEntity.ok(messages);
+        } catch (Exception e) {
+            throw new RuntimeException("Error fetching messages: " + e.getMessage(), e);
+        }
     }
-    
-    @PostMapping("/messages")
-    public ResponseEntity<ChatMessageResponse> sendMessage(@Valid @RequestBody SendMessageRequest request) {
-        Long currentUserId = getCurrentUserId();
-        return ResponseEntity.ok(chatService.sendMessage(currentUserId, request));
-    }
-    
+
     @PutMapping("/messages/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ChatMessageResponse> updateMessage(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateMessageRequest request) {
+            @RequestBody UpdateMessageRequest request) {
         Long currentUserId = getCurrentUserId();
-        return ResponseEntity.ok(chatService.updateMessage(id, currentUserId, request));
+        ChatMessageResponse response = chatService.updateMessage(id, currentUserId, request);
+        return ResponseEntity.ok(response);
     }
-    
+
     @DeleteMapping("/messages/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> deleteMessage(@PathVariable Long id) {
         Long currentUserId = getCurrentUserId();
         chatService.deleteMessage(id, currentUserId);
         return ResponseEntity.noContent().build();
     }
-    
+
     @PostMapping("/conversations/{id}/read")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> markAsRead(@PathVariable Long id) {
         Long currentUserId = getCurrentUserId();
         chatService.markAsRead(id, currentUserId);
         return ResponseEntity.noContent().build();
     }
-    
+
     @GetMapping("/conversations/{id}/unread-count")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Long> getUnreadCount(@PathVariable Long id) {
         Long currentUserId = getCurrentUserId();
-        return ResponseEntity.ok(chatService.getUnreadCount(id, currentUserId));
+        Long count = chatService.getUnreadCount(id, currentUserId);
+        return ResponseEntity.ok(count);
     }
-    
-    /**
-     * GET /api/v1/chat/instructors
-     * Lấy danh sách giảng viên từ các khóa học đã đăng ký (cho student)
-     */
+
     @GetMapping("/instructors")
-    public ResponseEntity<java.util.List<com.coursemgmt.dto.InstructorInfoDTO>> getEnrolledInstructors() {
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<InstructorInfoDTO>> getEnrolledInstructors() {
         Long currentUserId = getCurrentUserId();
-        return ResponseEntity.ok(chatService.getEnrolledInstructors(currentUserId));
+        List<InstructorInfoDTO> instructors = chatService.getEnrolledInstructors(currentUserId);
+        return ResponseEntity.ok(instructors);
+    }
+
+    private Long getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new RuntimeException("User not authenticated");
+        }
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        return userDetails.getId();
     }
 }

@@ -88,6 +88,7 @@ public class ContentService {
         lesson.setContent(request.getContent());
         lesson.setPosition(request.getPosition());
         lesson.setDurationInMinutes(request.getDurationInMinutes());
+        lesson.setIsPreview(request.getIsPreview() != null ? request.getIsPreview() : false);
         lesson.setChapter(chapter);
 
         return lessonRepository.save(lesson);
@@ -106,6 +107,7 @@ public class ContentService {
         lesson.setContent(request.getContent());
         lesson.setPosition(request.getPosition());
         lesson.setDurationInMinutes(request.getDurationInMinutes());
+        lesson.setIsPreview(request.getIsPreview() != null ? request.getIsPreview() : false);
 
         return lessonRepository.save(lesson);
     }

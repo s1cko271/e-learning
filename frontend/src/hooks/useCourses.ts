@@ -134,7 +134,10 @@ export const useDeleteCourse = () => {
       await apiClient.delete(`/v1/courses/${id}`);
     },
     onSuccess: () => {
+      // Invalidate cả courses và instructor-courses để refresh danh sách
       queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['instructor-courses'] });
+      queryClient.invalidateQueries({ queryKey: ['course'] }); // Invalidate cả course detail nếu đang mở
       addToast({
         type: 'success',
         description: 'Xóa khóa học thành công!',

@@ -34,7 +34,7 @@ public class Lesson {
     private Integer durationInMinutes;
 
     @Column(name = "is_preview")
-    private Boolean isPreview = false; // Lesson có thể xem trước (cho guests)
+    private Boolean isPreview = false; // Cho phép giảng viên preview bài học trước khi publish
 
     // (n-1) Nhiều Lesson thuộc 1 Chapter
     @ManyToOne(fetch = FetchType.LAZY)

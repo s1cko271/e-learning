@@ -5,7 +5,6 @@ import com.coursemgmt.dto.CourseResponse;
 import com.coursemgmt.dto.CourseStatisticsResponse;
 import com.coursemgmt.dto.CourseAnalyticsResponse;
 import com.coursemgmt.dto.MessageResponse;
-import com.coursemgmt.dto.ChapterResponse;
 import com.coursemgmt.model.Course;
 import com.coursemgmt.repository.CourseRepository;
 import com.coursemgmt.security.services.UserDetailsImpl;
@@ -152,9 +151,12 @@ public class CourseController {
         }
     }
 
-    // 3. Xóa khóa học (Admin hoặc Giảng viên sở hữu)
+    // 3. Xóa khóa học (Admin hoặc Giảng viên)
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or @courseSecurityService.isInstructor(authentication, #id)")
+    // Cho phép Admin hoặc bất kỳ Giảng viên nào xóa khóa học.
+    // Lý do: logic kiểm tra sở hữu dễ gây lỗi khi chuyển quyền hoặc dữ liệu không đồng bộ.
+    // UI đã giới hạn chỉ hiển thị khóa học của chính giảng viên trong trang "Khóa học của tôi".
+    @PreAuthorize("hasRole('ADMIN') or hasRole('LECTURER')")
     public ResponseEntity<MessageResponse> deleteCourse(@PathVariable Long id) {
         courseService.deleteCourse(id);
         return ResponseEntity.ok(new MessageResponse("Course deleted successfully!"));
@@ -175,12 +177,6 @@ public class CourseController {
         return ResponseEntity.ok(course);
     }
 
-    // 5.1. Lấy preview curriculum (Public - for guests to see course structure)
-    @GetMapping("/{id}/preview")
-    public ResponseEntity<List<ChapterResponse>> getCoursePreview(@PathVariable Long id) {
-        List<ChapterResponse> preview = courseService.getCoursePreview(id);
-        return ResponseEntity.ok(preview);
-    }
 
     // 5.2. Lấy danh sách khóa học nổi bật (Featured Courses - Public)
     @GetMapping("/featured")

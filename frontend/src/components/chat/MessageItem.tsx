@@ -94,9 +94,9 @@ export function MessageItem({
         <div className="flex-shrink-0 mr-2">
           {showAvatar ? (
             <Avatar className="h-8 w-8">
-              <AvatarImage src={message.senderAvatar || undefined} />
+          <AvatarImage src={message.senderAvatar || undefined} />
               <AvatarFallback className="text-xs">{message.senderName.charAt(0).toUpperCase()}</AvatarFallback>
-            </Avatar>
+        </Avatar>
           ) : (
             <div className="h-8 w-8" /> // Spacer when avatar is hidden
           )}
@@ -182,30 +182,30 @@ export function MessageItem({
                 </div>
               )}
 
-              {message.messageType === 'IMAGE' && message.fileUrl && (
-                <img
-                  src={message.fileUrl}
-                  alt="Image"
-                  className="max-w-xs rounded-lg mb-2 cursor-pointer"
-                  onClick={() => window.open(message.fileUrl!, '_blank')}
-                />
-              )}
-              
-              {message.messageType === 'FILE' && message.fileUrl && (
-                <a
-                  href={message.fileUrl}
-                  download={message.fileName}
-                  className="flex items-center gap-2 text-sm underline"
-                >
-                  📎 {message.fileName} ({(message.fileSize! / 1024).toFixed(1)} KB)
-                </a>
-              )}
-              
-              {message.messageType === 'TEXT' && (
-                <p className="text-sm whitespace-pre-wrap break-words">{displayContent}</p>
-              )}
-              
-              {message.isEdited && (
+          {message.messageType === 'IMAGE' && message.fileUrl && (
+            <img
+              src={message.fileUrl}
+              alt="Image"
+              className="max-w-xs rounded-lg mb-2 cursor-pointer"
+              onClick={() => window.open(message.fileUrl!, '_blank')}
+            />
+          )}
+          
+          {message.messageType === 'FILE' && message.fileUrl && (
+            <a
+              href={message.fileUrl}
+              download={message.fileName}
+              className="flex items-center gap-2 text-sm underline"
+            >
+              📎 {message.fileName} ({(message.fileSize! / 1024).toFixed(1)} KB)
+            </a>
+          )}
+          
+          {message.messageType === 'TEXT' && (
+            <p className="text-sm whitespace-pre-wrap break-words">{displayContent}</p>
+          )}
+          
+          {message.isEdited && (
                 <span className="text-xs opacity-70 mt-1 block">(đã chỉnh sửa)</span>
               )}
             </>
