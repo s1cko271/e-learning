@@ -90,11 +90,11 @@ public class TransactionService {
         try {
             if ("VNPAY".equals(request.getPaymentGateway())) {
                 paymentUrl = vnPayService.createPaymentUrl(
-                    saved.getId(),
+                    txCode, // Sử dụng transaction code
                     saved.getAmount(),
                     "Thanh toan khoa hoc: " + course.getTitle(),
                     request.getReturnUrl(),
-                    request.getBankCode()
+                    request.getBankCode() // Use provided bankCode or null (let user choose)
                 );
             } else if ("MOMO".equals(request.getPaymentGateway())) {
                 // TODO: Implement MoMo integration

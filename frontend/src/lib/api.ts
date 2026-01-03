@@ -107,9 +107,10 @@ apiClient.interceptors.response.use(
       }
       
       // Only log non-400/401/403 errors (500, etc.) - validation errors (400) and auth errors (401/403) are handled in UI
-      if (error.response.status !== 400 && error.response.status !== 401 && error.response.status !== 403) {
+      const status = error.response?.status;
+      if (status && status !== 400 && status !== 401 && status !== 403) {
         console.error('API Error Response:', {
-          status: error.response.status,
+          status: status,
           statusText: error.response.statusText,
           url: error.config?.url,
           method: error.config?.method,

@@ -496,36 +496,6 @@ INSERT INTO `transactions` VALUES
 UNLOCK TABLES;
 
 --
--- Table structure for table `chat_messages`
---
-
-DROP TABLE IF EXISTS `chat_messages`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `chat_messages` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `created_at` datetime(6) DEFAULT NULL,
-  `feedback_rating` int DEFAULT NULL,
-  `message_content` tinytext COLLATE utf8mb4_unicode_ci NOT NULL,
-  `response_content` longtext COLLATE utf8mb4_unicode_ci,
-  `session_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `user_id` bigint NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `FK6f0y4l43ihmgfswkgy9yrtjkh` (`user_id`),
-  CONSTRAINT `FK6f0y4l43ihmgfswkgy9yrtjkh` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `chat_messages`
---
-
-LOCK TABLES `chat_messages` WRITE;
-/*!40000 ALTER TABLE `chat_messages` DISABLE KEYS */;
-/*!40000 ALTER TABLE `chat_messages` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `recommendations`
 --
 

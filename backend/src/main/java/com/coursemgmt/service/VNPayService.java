@@ -32,9 +32,14 @@ public class VNPayService {
 
     /**
      * Tạo URL thanh toán VNPay
+     * @param transactionCode Transaction code (unique identifier)
+     * @param amount Số tiền (VND)
+     * @param orderInfo Thông tin đơn hàng
+     * @param returnUrl URL trả về sau thanh toán
+     * @param bankCode Mã ngân hàng (null = để user chọn, "VNPAYQR" = QR code)
      */
     public String createPaymentUrl(
-        Long transactionId,
+        String transactionCode,
         Double amount,
         String orderInfo,
         String returnUrl,
@@ -47,7 +52,8 @@ public class VNPayService {
         vnpParams.put("vnp_TmnCode", vnpTmnCode);
         vnpParams.put("vnp_Amount", String.valueOf((long)(amount * 100))); // VNPay yêu cầu nhân 100
         vnpParams.put("vnp_CurrCode", "VND");
-        vnpParams.put("vnp_TxnRef", "TXN" + transactionId);
+        // Transaction reference: sử dụng transaction code
+        vnpParams.put("vnp_TxnRef", transactionCode);
         vnpParams.put("vnp_OrderInfo", orderInfo);
         vnpParams.put("vnp_OrderType", "other");
         vnpParams.put("vnp_Locale", "vn");
@@ -55,6 +61,8 @@ public class VNPayService {
         vnpParams.put("vnp_IpAddr", "127.0.0.1");
         
         // Bank code (optional)
+        // VNPAYQR = Thanh toán bằng QR code
+        // null = để user chọn phương thức thanh toán
         if (bankCode != null && !bankCode.isEmpty()) {
             vnpParams.put("vnp_BankCode", bankCode);
         }
@@ -110,31 +118,67 @@ public class VNPayService {
      * Verify payment callback signature
      */
     public boolean verifyPaymentSignature(Map<String, String> params) {
+        // Handle empty params (test call)
+        if (params == null || params.isEmpty()) {
+            System.out.println("WARNING: Empty params - cannot verify signature");
+            return false;
+        }
+        
         String vnpSecureHash = params.get("vnp_SecureHash");
-        params.remove("vnp_SecureHash");
-        params.remove("vnp_SecureHashType");
+        
+        // If no SecureHash, cannot verify (might be test call)
+        if (vnpSecureHash == null || vnpSecureHash.isEmpty()) {
+            System.out.println("WARNING: No vnp_SecureHash found in params");
+            return false;
+        }
+        
+        // Create a copy to avoid modifying original map
+        Map<String, String> paramsCopy = new HashMap<>(params);
+        paramsCopy.remove("vnp_SecureHash");
+        paramsCopy.remove("vnp_SecureHashType");
+        
+        // If no params left after removing SecureHash, cannot verify
+        if (paramsCopy.isEmpty()) {
+            System.out.println("WARNING: No params to verify (only SecureHash present)");
+            return false;
+        }
         
         // Sort params
-        List<String> fieldNames = new ArrayList<>(params.keySet());
+        List<String> fieldNames = new ArrayList<>(paramsCopy.keySet());
         Collections.sort(fieldNames);
         
         StringBuilder hashData = new StringBuilder();
+        try {
         Iterator<String> itr = fieldNames.iterator();
         while (itr.hasNext()) {
             String fieldName = itr.next();
-            String fieldValue = params.get(fieldName);
+                String fieldValue = paramsCopy.get(fieldName);
             if (fieldValue != null && !fieldValue.isEmpty()) {
-                hashData.append(fieldName);
+                    // URL encode fieldName and fieldValue (same as when creating payment URL)
+                    hashData.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII.toString()));
                 hashData.append('=');
-                hashData.append(fieldValue);
+                    hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
                 if (itr.hasNext()) {
                     hashData.append('&');
                 }
             }
+            }
+        } catch (UnsupportedEncodingException e) {
+            System.err.println("ERROR: Failed to URL encode for signature verification: " + e.getMessage());
+            return false;
         }
         
         String calculatedHash = hmacSHA512(vnpHashSecret, hashData.toString());
-        return calculatedHash.equals(vnpSecureHash);
+        boolean isValid = calculatedHash.equals(vnpSecureHash);
+        
+        if (!isValid) {
+            System.out.println("Signature verification failed:");
+            System.out.println("  Expected: " + vnpSecureHash);
+            System.out.println("  Calculated: " + calculatedHash);
+            System.out.println("  Hash data: " + hashData.toString());
+        }
+        
+        return isValid;
     }
 
     /**

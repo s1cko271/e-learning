@@ -5,11 +5,13 @@ import com.coursemgmt.dto.CourseResponse;
 import com.coursemgmt.dto.CourseStatisticsResponse;
 import com.coursemgmt.dto.CourseAnalyticsResponse;
 import com.coursemgmt.dto.MessageResponse;
+import com.coursemgmt.dto.MeetingResponse;
 import com.coursemgmt.model.Course;
 import com.coursemgmt.repository.CourseRepository;
 import com.coursemgmt.security.services.UserDetailsImpl;
 import com.coursemgmt.service.CourseService;
 import com.coursemgmt.service.FileStorageService;
+import com.coursemgmt.service.MeetingService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -39,6 +41,9 @@ public class CourseController {
 
     @Autowired
     private CourseRepository courseRepository;
+
+    @Autowired
+    private MeetingService meetingService;
 
     // Valid sort fields for Course entity
     private static final Set<String> VALID_SORT_FIELDS = new HashSet<>(Arrays.asList(
@@ -277,5 +282,13 @@ public class CourseController {
         System.out.println("========================================");
         
         return ResponseEntity.ok(courses);
+    }
+
+    // 12. Get meetings for a course
+    @GetMapping("/{id}/meetings")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<MeetingResponse>> getCourseMeetings(@PathVariable Long id) {
+        List<MeetingResponse> meetings = meetingService.getCourseMeetings(id);
+        return ResponseEntity.ok(meetings);
     }
 }

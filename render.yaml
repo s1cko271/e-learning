@@ -1,0 +1,75 @@
+# Render Blueprint Configuration
+# Sử dụng file này để tự động tạo service trên Render
+# Hoặc cấu hình thủ công trên Render Dashboard
+
+services:
+  - type: web
+    name: e-learning-backend
+    env: docker
+    region: singapore  # Chọn region gần nhất
+    plan: starter  # Free tier
+    buildCommand: ""  # Dockerfile tự động build
+    startCommand: ""  # Dockerfile tự động start
+    envVars:
+      # Database - Cập nhật từ Aiven
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:mysql://[HOST]:[PORT]/[DB]?useSSL=true&requireSSL=true&serverTimezone=UTC&characterEncoding=UTF-8
+      - key: SPRING_DATASOURCE_USERNAME
+        value: avnadmin
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false  # Set manually
+      
+      # Server
+      - key: PORT
+        value: 10000
+      - key: SPRING_PROFILES_ACTIVE
+        value: production
+      
+      # CORS - Cập nhật sau khi có Vercel URL
+      - key: ALLOWED_ORIGINS
+        value: https://your-app.vercel.app,http://localhost:3000
+      
+      # VNPay
+      - key: VNPAY_URL
+        value: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+      - key: VNPAY_RETURN_URL
+        value: https://your-app.vercel.app/payment/vnpay-return
+      - key: VNPAY_IPN_URL
+        value: https://your-backend.onrender.com/api/v1/vnpay/ipn
+      - key: VNPAY_TMN_CODE
+        value: PISGV29M
+      - key: VNPAY_HASH_SECRET
+        value: DRC0V9AAYA651P2SID7SVYRY46HND1H4
+      
+      # JWT - Tạo random string
+      - key: JWT_SECRET
+        sync: false  # Set manually
+      
+      # Mail
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USERNAME
+        sync: false  # Set manually
+      - key: MAIL_PASSWORD
+        sync: false  # Set manually
+      
+      # Gemini
+      - key: GEMINI_API_KEY
+        sync: false  # Set manually
+      - key: GEMINI_API_URL
+        value: https://generativelanguage.googleapis.com/v1beta
+      - key: GEMINI_API_MODEL
+        value: gemini-2.5-flash
+      
+      # File Storage
+      - key: CERTIFICATE_STORAGE_PATH
+        value: /app/certificates
+      - key: CERTIFICATE_BASE_URL
+        value: https://your-backend.onrender.com/certificates
+      - key: AVATAR_STORAGE_PATH
+        value: /app/uploads/avatars
+      - key: AVATAR_BASE_URL
+        value: https://your-backend.onrender.com/api/files/avatars
+

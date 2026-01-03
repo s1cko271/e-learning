@@ -23,9 +23,10 @@ app.frontend.url=http://localhost:3000
 
 # VNPay Configuration
 vnpay.url=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-vnpay.return-url=http://localhost:3000/payment/callback
-vnpay.tmn-code=YOUR_TMN_CODE_HERE
-vnpay.hash-secret=YOUR_HASH_SECRET_HERE
+vnpay.return-url=http://localhost:3000/payment/vnpay-return
+vnpay.ipn-url=http://localhost:8080/api/v1/vnpay/ipn
+vnpay.tmn-code=PISGV29M
+vnpay.hash-secret=DRC0V9AAYA651P2SID7SVYRY46HND1H4
 
 # Certificate Storage
 certificate.storage.path=./certificates

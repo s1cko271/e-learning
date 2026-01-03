@@ -38,6 +38,9 @@ public class PaymentService {
     
     @Autowired
     private NotificationService notificationService;
+    
+    @Autowired
+    private VNPayService vnPayService;
 
     /**
      * Tạo payment URL cho việc mua khóa học
@@ -89,15 +92,28 @@ public class PaymentService {
         
         Transaction saved = transactionRepository.save(transaction);
         
-        // MOCK LOGIC: Return mock payment URL instead of calling real VNPay
-        String paymentUrl = "http://localhost:3000/payment/mock-gateway?txnCode=" + 
-                          transactionCode + "&amount=" + saved.getAmount();
-        
-        return Map.of(
-            "paymentUrl", paymentUrl,
-            "transactionCode", transactionCode,
-            "amount", saved.getAmount().toString()
-        );
+        // Generate VNPay payment URL with QR code support
+        try {
+            String returnUrl = "http://localhost:3000/payment/vnpay-return";
+            // Sử dụng transactionCode làm vnp_TxnRef cho VNPay
+            String paymentUrl = vnPayService.createPaymentUrl(
+                transactionCode, // VNPay sẽ dùng transactionCode này làm vnp_TxnRef
+                saved.getAmount(),
+                "Thanh toan khoa hoc: " + course.getTitle(),
+                returnUrl,
+                null // Let user choose payment method on VNPay
+            );
+            
+            return Map.of(
+                "paymentUrl", paymentUrl,
+                "transactionCode", transactionCode,
+                "amount", saved.getAmount().toString()
+            );
+        } catch (Exception e) {
+            System.err.println("ERROR: Failed to create VNPay URL: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Không thể tạo URL thanh toán: " + e.getMessage());
+        }
     }
 
     /**
@@ -141,14 +157,32 @@ public class PaymentService {
             throw new IllegalArgumentException("Invalid status: " + status + ". Must be SUCCESS or FAILED");
         }
         
-        // 3. Update ALL transaction statuses
+        // 3. Check if already processed (prevent duplicate processing)
+        // Only check for SUCCESS status to avoid re-processing successful payments
+        if (newStatus == ETransactionStatus.SUCCESS) {
+            boolean alreadySuccess = transactions.stream()
+                    .allMatch(t -> t.getStatus() == ETransactionStatus.SUCCESS);
+            
+            if (alreadySuccess) {
+                System.out.println("Transaction already processed with SUCCESS status");
+                // Return early - transaction already updated
+                return Map.of(
+                    "message", "Transaction already processed",
+                    "transactionCode", txnCode,
+                    "status", newStatus.toString(),
+                    "alreadyUpdated", "true"
+                );
+            }
+        }
+        
+        // 4. Update ALL transaction statuses
         for (Transaction transaction : transactions) {
             transaction.setStatus(newStatus);
             transactionRepository.save(transaction);
             System.out.println("Transaction " + transaction.getId() + " status updated to: " + newStatus);
         }
         
-        // 4. Create Enrollments IF Success
+        // 5. Create Enrollments IF Success
         if (newStatus == ETransactionStatus.SUCCESS) {
             System.out.println("Status is SUCCESS - Creating Enrollments for all courses...");
             createEnrollmentsAfterPayment(transactions, cartId);

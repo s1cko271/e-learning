@@ -17,6 +17,10 @@ backend/src/main/resources/application.properties
 backend/src/main/resources/application-*.properties
 !backend/src/main/resources/application.properties.example
 
+# Deployment config files with sensitive data
+AIVEN_CONFIG.md
+RENDER_ENV_VARS.md
+
 # IDE
 .vscode/
 .idea/

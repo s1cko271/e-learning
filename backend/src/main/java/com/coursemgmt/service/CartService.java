@@ -42,6 +42,9 @@ public class CartService {
     @Autowired
     private TransactionRepository transactionRepository;
 
+    @Autowired
+    private VNPayService vnPayService;
+
     /**
      * Lấy hoặc tạo Cart cho user hiện tại
      */
@@ -189,12 +192,27 @@ public class CartService {
             transactionRepository.save(transaction);
         }
 
-        // MOCK LOGIC: Return mock payment URL
-        // In real implementation, this would call VNPay/MoMo API with total amount
-        String paymentUrl = "http://localhost:3000/payment/mock-gateway?txnCode=" + 
-                          transactionCode + 
-                          "&amount=" + totalAmount +
-                          "&cartId=" + cart.getId(); // Pass cartId to clear cart after payment
+        // Generate VNPay payment URL with total amount
+        try {
+            // Build order info from course titles
+            String orderInfo = "Thanh toan gio hang: " + 
+                cart.getItems().stream()
+                    .map(item -> item.getCourse().getTitle())
+                    .limit(3) // Limit to first 3 courses to avoid URL too long
+                    .collect(Collectors.joining(", "));
+            
+            if (cart.getItems().size() > 3) {
+                orderInfo += " va " + (cart.getItems().size() - 3) + " khoa hoc khac";
+            }
+            
+            String returnUrl = "http://localhost:3000/payment/vnpay-return";
+            String paymentUrl = vnPayService.createPaymentUrl(
+                transactionCode, // Use transactionCode as vnp_TxnRef
+                totalAmount, // Total amount for all courses
+                orderInfo,
+                returnUrl,
+                null // Let user choose payment method on VNPay (QR, ATM, etc.)
+            );
 
         return Map.of(
             "paymentUrl", paymentUrl,
@@ -202,6 +220,11 @@ public class CartService {
             "amount", totalAmount.toString(),
             "cartId", cart.getId().toString()
         );
+        } catch (Exception e) {
+            System.err.println("ERROR: Failed to create VNPay URL: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Không thể tạo URL thanh toán: " + e.getMessage());
+        }
     }
 
     /**

@@ -27,7 +27,8 @@ spring.web.cors.allow-credentials=true
 
 # VNPay Configuration
 vnpay.url=${VNPAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
-vnpay.return-url=${VNPAY_RETURN_URL:https://your-frontend.vercel.app/payment/callback}
+vnpay.return-url=${VNPAY_RETURN_URL:https://your-frontend.vercel.app/payment/vnpay-return}
+vnpay.ipn-url=${VNPAY_IPN_URL:https://your-backend.onrender.com/api/v1/vnpay/ipn}
 vnpay.tmn-code=${VNPAY_TMN_CODE:YOUR_TMN_CODE}
 vnpay.hash-secret=${VNPAY_HASH_SECRET:YOUR_HASH_SECRET}
 
