@@ -16,6 +16,7 @@ my_config.env
 backend/src/main/resources/application.properties
 backend/src/main/resources/application-*.properties
 !backend/src/main/resources/application.properties.example
+!backend/src/main/resources/application-production.properties
 
 # Deployment config files with sensitive data
 AIVEN_CONFIG.md
