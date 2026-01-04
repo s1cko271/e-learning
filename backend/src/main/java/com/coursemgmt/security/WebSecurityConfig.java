@@ -34,7 +34,7 @@ public class WebSecurityConfig {
     @Autowired
     private CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
     
-    @Value("${spring.web.cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost:5177}")
+    @Value("${ALLOWED_ORIGINS:${spring.web.cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost:5177}}")
     private String allowedOrigins;
 
     @Bean
