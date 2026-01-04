@@ -113,10 +113,17 @@ export default function CourseContentPage() {
       // Step 1: Create the lesson
       const createdLesson = await createLesson(Number(courseId), chapterId, data);
       
+      // Validate lesson was created successfully
+      if (!createdLesson || !createdLesson.id) {
+        throw new Error('Không thể tạo bài học. Vui lòng thử lại.');
+      }
+      
       // Step 2: Upload file if provided
       if (videoFile && createdLesson.id) {
         try {
+          console.log('Uploading video:', { courseId, chapterId, lessonId: createdLesson.id, fileName: videoFile.name, fileSize: videoFile.size });
           const videoUrl = await uploadLessonVideo(Number(courseId), chapterId, createdLesson.id, videoFile);
+          console.log('Video uploaded successfully:', videoUrl);
           // Step 3: Update lesson with the video URL
           await updateLesson(Number(courseId), chapterId, createdLesson.id, {
             ...data,
@@ -124,7 +131,8 @@ export default function CourseContentPage() {
           });
         } catch (uploadError: any) {
           console.error('Video upload failed:', uploadError);
-          throw new Error(`Bài học đã tạo nhưng upload video thất bại: ${uploadError.message || 'Lỗi không xác định'}`);
+          const errorMessage = uploadError.response?.data?.message || uploadError.message || 'Lỗi không xác định';
+          throw new Error(`Bài học đã tạo nhưng upload video thất bại: ${errorMessage}`);
         }
       }
       
@@ -966,8 +974,8 @@ function LessonDialog({
             <div>
               <Label htmlFor="lesson-type">Loại nội dung *</Label>
               <Select value={contentType} onValueChange={(value: 'VIDEO' | 'TEXT' | 'DOCUMENT' | 'SLIDE') => setContentType(value)}>
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
+                <SelectTrigger id="lesson-type" className="mt-2">
+                  <SelectValue placeholder="Chọn loại nội dung" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="VIDEO">Video bài giảng</SelectItem>
