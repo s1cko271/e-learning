@@ -37,8 +37,9 @@ avatar.storage.path=./uploads/avatars
 avatar.base-url=http://localhost:8080/api/files/avatars
 
 # File Upload
-spring.servlet.multipart.max-file-size=10MB
-spring.servlet.multipart.max-request-size=10MB
+# Video files can be up to 500MB
+spring.servlet.multipart.max-file-size=500MB
+spring.servlet.multipart.max-request-size=500MB
 
 # Logging
 logging.level.com.coursemgmt=DEBUG
@@ -61,4 +62,5 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 gemini.api.key=YOUR_GEMINI_API_KEY_HERE
 gemini.api.url=https://generativelanguage.googleapis.com/v1beta
 gemini.api.model=gemini-2.5-flash
+
 
