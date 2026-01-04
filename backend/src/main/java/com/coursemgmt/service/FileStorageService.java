@@ -42,7 +42,7 @@ public class FileStorageService {
                               @Value("${course.image.storage.path:./uploads/courses}") String courseImageStoragePath,
                               @Value("${COURSE_IMAGE_BASE_URL:${course.image.base-url:http://localhost:8080/api/files/courses}}") String courseImageBaseUrl,
                               @Value("${lesson.video.storage.path:./uploads/lessons/videos}") String lessonVideoStoragePath,
-                              @Value("${lesson.video.base-url:http://localhost:8080/api/files/lessons/videos}") String lessonVideoBaseUrl,
+                              @Value("${LESSON_VIDEO_BASE_URL:${lesson.video.base-url:http://localhost:8080/api/files/lessons/videos}}") String lessonVideoBaseUrl,
                               @Value("${lesson.document.storage.path:./uploads/lessons/documents}") String lessonDocumentStoragePath,
                               @Value("${lesson.document.base-url:http://localhost:8080/api/files/lessons/documents}") String lessonDocumentBaseUrl,
                               @Value("${lesson.slide.storage.path:./uploads/lessons/slides}") String lessonSlideStoragePath,

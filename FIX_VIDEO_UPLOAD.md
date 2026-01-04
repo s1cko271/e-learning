@@ -1,116 +1,137 @@
-# 🔧 Sửa lỗi Upload Video và Dropdown Loại Nội Dung
+# 🔧 Sửa lỗi Upload Video và Chọn Loại Nội Dung
 
-## ❌ Vấn đề
+## ❌ Lỗi hiện tại
 
-1. **Không upload được video bài học**: Lỗi 400 Bad Request
+1. **Không upload được video bài học**: Lỗi 400 Bad Request khi upload
 2. **Không chọn được loại nội dung**: Dropdown không hoạt động
 
-## 🔍 Nguyên nhân
+## ✅ Các thay đổi đã thực hiện
 
-### 1. Multipart Config Quá Nhỏ
+### 1. Tăng Multipart Config
 
-- Config hiện tại: `max-file-size=10MB`
-- Video cần: `500MB`
-- → Spring Boot reject file trước khi đến controller
+**File:** `backend/src/main/resources/application.properties.example`
 
-### 2. Dropdown Loại Nội Dung
+```properties
+# File Upload
+# Video files can be up to 500MB
+spring.servlet.multipart.max-file-size=500MB
+spring.servlet.multipart.max-request-size=500MB
+```
 
-- Có thể do state không được set đúng
-- Hoặc Select component có vấn đề
-
-## ✅ Giải pháp
-
-### 1. Cập nhật Multipart Config trên Render
-
-Vào Render Dashboard → Web Service `e-learning-backend` → Environment:
-
-**Thêm/Sửa các biến:**
-
+**Lưu ý:** Cần cập nhật biến môi trường trên Render:
 ```
 SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE=500MB
 SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE=500MB
-SPRING_SERVLET_MULTIPART_ENABLED=true
 ```
 
-**Lưu ý:** 
-- Render sẽ tự động map `SPRING_SERVLET_MULTIPART_*` thành `spring.servlet.multipart.*`
-- Sau khi cập nhật, restart service
+### 2. Thêm LESSON_VIDEO_BASE_URL
 
-### 2. Kiểm tra Code
+**File:** `backend/src/main/java/com/coursemgmt/service/FileStorageService.java`
 
-#### Backend:
-- ✅ Đã cập nhật `application.properties.example` với 500MB
-- ✅ `FileStorageService.storeLessonVideo()` đã validate 500MB
-- ✅ Exception handler đã handle `MaxUploadSizeExceededException`
+Đã sửa để đọc từ biến môi trường:
+```java
+@Value("${LESSON_VIDEO_BASE_URL:${lesson.video.base-url:http://localhost:8080/api/files/lessons/videos}}")
+```
 
-#### Frontend:
-- ✅ Select component có vẻ OK
-- ✅ State management có vẻ OK
+### 3. Select Component
 
-### 3. Debug Steps
+Select component đã có `id="lesson-type"` và `placeholder`.
 
-#### Kiểm tra Multipart Config:
+## 📝 Cần làm tiếp
 
-1. **Xem logs trên Render:**
-   - Tìm log: `MaxUploadSizeExceededException`
-   - Hoặc: `MultipartException`
+### Bước 1: Cập nhật biến môi trường trên Render
 
-2. **Test endpoint:**
+Vào Render Dashboard → Web Service `e-learning-backend` → Environment:
+
+**1. Thêm/Sửa multipart config:**
+```
+SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE=500MB
+SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE=500MB
+```
+
+**2. Thêm/Sửa LESSON_VIDEO_BASE_URL:**
+```
+LESSON_VIDEO_BASE_URL=https://e-learning-backend-hchr.onrender.com/api/files/lessons/videos
+```
+
+**Lưu ý:** Thay `e-learning-backend-hchr.onrender.com` bằng URL backend thực tế của bạn.
+
+### Bước 2: Restart Backend
+
+Sau khi cập nhật biến môi trường:
+1. Click **Save Changes** trên Render
+2. Render sẽ tự động restart service
+3. Đợi 1-2 phút để service restart xong
+
+### Bước 3: Test lại
+
+1. **Test chọn loại nội dung:**
+   - Mở form thêm bài học
+   - Click dropdown "Loại nội dung"
+   - Chọn một loại (VIDEO, TEXT, DOCUMENT, SLIDE)
+   - Kiểm tra xem có chọn được không
+
+2. **Test upload video:**
+   - Chọn loại "Video bài giảng"
+   - Chọn file video (nhỏ hơn 500MB)
+   - Click "Tạo bài học"
+   - Kiểm tra xem video có được upload không
+
+## 🔍 Debug
+
+### Nếu vẫn lỗi upload:
+
+1. **Kiểm tra logs trên Render:**
+   - Vào Render Dashboard → Logs
+   - Tìm lỗi liên quan đến multipart hoặc file upload
+   - Kiểm tra xem có "MaxUploadSizeExceededException" không
+
+2. **Kiểm tra file size:**
+   - Đảm bảo file video < 500MB
+   - Nếu file quá lớn, cần tăng config hoặc compress video
+
+3. **Kiểm tra endpoint:**
    ```bash
-   # Test với file nhỏ trước (dưới 10MB)
-   curl -X POST https://e-learning-backend-hchr.onrender.com/api/v1/courses/15/chapters/1/lessons/1/upload-video \
+   # Test endpoint (cần token)
+   curl -X POST https://your-backend.onrender.com/api/v1/courses/15/chapters/1/lessons/1/upload-video \
      -H "Authorization: Bearer YOUR_TOKEN" \
-     -F "file=@small-video.mp4"
+     -F "file=@video.mp4"
    ```
 
-3. **Kiểm tra file size:**
-   - File video: 92.69 MB (trong hình)
-   - Config cũ: 10MB → **Lỗi!**
-   - Config mới: 500MB → **OK**
+### Nếu vẫn không chọn được loại nội dung:
 
-#### Kiểm tra Dropdown:
+1. **Kiểm tra console:**
+   - Mở DevTools → Console
+   - Tìm lỗi JavaScript
+   - Kiểm tra xem có lỗi về Select component không
 
-1. **Mở DevTools Console:**
-   - Xem có lỗi JavaScript không
-   - Kiểm tra state `contentType` có được set không
-
-2. **Test thủ công:**
-   - Click vào dropdown
-   - Chọn option khác
-   - Xem state có thay đổi không
-
-## 📝 Checklist
-
-- [ ] Đã cập nhật `SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE=500MB` trên Render
-- [ ] Đã cập nhật `SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE=500MB` trên Render
-- [ ] Đã restart backend trên Render
-- [ ] Đã test upload video với file < 500MB
-- [ ] Đã kiểm tra dropdown loại nội dung hoạt động
-- [ ] Đã xem logs trên Render không có lỗi multipart
+2. **Kiểm tra state:**
+   - Đảm bảo `contentType` state được set đúng
+   - Kiểm tra `onValueChange` handler có được gọi không
 
 ## ⚠️ Lưu ý
 
-1. **File Size Limits:**
-   - Video: 500MB
-   - Document: 50MB
-   - Image: 10MB
+1. **Multipart config:**
+   - Phải >= 500MB để upload video lớn
+   - Cả `max-file-size` và `max-request-size` đều phải >= 500MB
 
-2. **Timeout:**
-   - Frontend đã set timeout 10 phút cho video upload
-   - Backend cần đủ thời gian để xử lý file lớn
+2. **File size:**
+   - Video tối đa 500MB
+   - Nếu cần upload video lớn hơn, cần tăng config hoặc dùng streaming
 
-3. **Storage:**
-   - Đảm bảo Render có đủ disk space
-   - Video files sẽ được lưu trong `/app/uploads/lessons/videos/`
+3. **Content-Type:**
+   - Frontend đã xử lý đúng (xóa Content-Type header cho FormData)
+   - Browser sẽ tự động set boundary
 
-## 🎯 Sau khi sửa
+4. **Lesson creation:**
+   - Lesson phải được tạo thành công trước khi upload video
+   - Code đã handle việc này (tạo lesson → upload video → update lesson)
 
-1. **Restart Backend:**
-   - Render sẽ tự động restart sau khi cập nhật env vars
-   - Hoặc click "Manual Deploy" → "Deploy latest commit"
+## ✅ Checklist
 
-2. **Test:**
-   - Upload video < 500MB
-   - Kiểm tra dropdown loại nội dung
-   - Xem logs nếu vẫn lỗi
-
+- [ ] Đã cập nhật `SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE=500MB` trên Render
+- [ ] Đã cập nhật `SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE=500MB` trên Render
+- [ ] Đã cập nhật `LESSON_VIDEO_BASE_URL` trên Render
+- [ ] Đã restart backend trên Render
+- [ ] Đã test chọn loại nội dung
+- [ ] Đã test upload video
