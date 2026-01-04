@@ -36,6 +36,10 @@ certificate.base-url=http://localhost:8080/certificates
 avatar.storage.path=./uploads/avatars
 avatar.base-url=http://localhost:8080/api/files/avatars
 
+# Lesson Video Storage
+lesson.video.storage.path=./uploads/lessons/videos
+lesson.video.base-url=http://localhost:8080/api/files/lessons/videos
+
 # File Upload
 # Video files can be up to 500MB
 spring.servlet.multipart.max-file-size=500MB
