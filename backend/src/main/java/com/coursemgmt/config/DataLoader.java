@@ -138,12 +138,6 @@ public class DataLoader implements CommandLineRunner {
     }
 
     private void initializeF8FeaturedCourses() {
-        // Chỉ tạo dữ liệu nếu chưa có courses nào
-        if (courseRepository.count() > 0) {
-            System.out.println("Courses already exist. Skipping F8 data initialization.");
-            return;
-        }
-
         System.out.println("Fetching F8 courses data...");
         
         try {
