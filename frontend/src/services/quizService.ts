@@ -286,44 +286,6 @@ export const calculateScore = (
 };
 
 // =====================
-// LEGACY FUNCTIONS (mapped to new API)
-// =====================
-
-/**
- * @deprecated Use getTestForStudent instead
- */
-export const getQuizById = async (quizId: number) => {
-  return getTestForStudent(quizId);
-};
-
-/**
- * @deprecated Use submitTest instead
- */
-export const submitQuizAttempt = async (
-  attemptId: number,
-  data: { answers: { questionId: number; answerText: string }[] }
-) => {
-  // Note: Old API used attemptId, new API uses testId
-  // This is kept for compatibility but may not work correctly
-  console.warn('submitQuizAttempt is deprecated. Use submitTest instead.');
-  return submitTest(attemptId, data);
-};
-
-/**
- * @deprecated Use getTestResult instead
- */
-export const getAttemptResults = async (attemptId: number) => {
-  return getTestResult(attemptId);
-};
-
-/**
- * @deprecated Use getTestStatistics instead
- */
-export const getQuizStatistics = async (quizId: number) => {
-  return getTestStatistics(quizId);
-};
-
-// =====================
 // EXPORTS
 // =====================
 
@@ -345,10 +307,4 @@ export default {
   formatTime,
   isAnswerCorrect,
   calculateScore,
-
-  // Legacy
-  getQuizById,
-  submitQuizAttempt,
-  getAttemptResults,
-  getQuizStatistics,
 };

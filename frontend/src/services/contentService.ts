@@ -389,20 +389,6 @@ export const calculateCompletionPercentage = (chapters: ChapterResponse[]): numb
 // These map old API calls to new structure
 // =====================
 
-/**
- * @deprecated Use getCourseContent instead
- */
-export const getCourseContents = async (courseId: number) => {
-  return getCourseContent(courseId);
-};
-
-/**
- * @deprecated Use markLessonAsCompleted instead
- */
-export const markContentCompleted = async (contentId: number) => {
-  return markLessonAsCompleted(contentId);
-};
-
 // =====================
 // EXPORTS
 // =====================
@@ -431,8 +417,4 @@ export default {
   calculateCourseDuration,
   countTotalLessons,
   calculateCompletionPercentage,
-
-  // Legacy
-  getCourseContents,
-  markContentCompleted,
 };

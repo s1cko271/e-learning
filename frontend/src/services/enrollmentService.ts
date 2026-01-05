@@ -145,36 +145,6 @@ export const getMonthlyStudentStats = async (year: number = 2025): Promise<Month
 // =====================
 
 /**
- * Get user's enrollments (Legacy - uses getEnrollmentsByStudent)
- * @deprecated Use getEnrollmentsByStudent instead
- */
-export const getMyEnrollments = async (userId: number): Promise<EnrollmentResponse[]> => {
-  const response = await getEnrollmentsByStudent(userId);
-  return response.content;
-};
-
-/**
- * Get enrollment by course ID for current user
- * @deprecated Use getEnrollmentsByCourse instead
- */
-export const getEnrollmentByCourse = async (courseId: number): Promise<EnrollmentResponse | null> => {
-  try {
-    const response = await getEnrollmentsByCourse(courseId, 0, 1);
-    return response.content.length > 0 ? response.content[0] : null;
-  } catch (error) {
-    return null;
-  }
-};
-
-/**
- * Update progress (Legacy)
- * @deprecated Use updateEnrollment instead
- */
-export const updateProgress = async (enrollmentId: number, progress: number) => {
-  return updateEnrollment(enrollmentId, { progress });
-};
-
-/**
  * Complete lesson
  * Note: Use content API POST /api/content/lessons/{lessonId}/complete instead
  */
@@ -188,6 +158,11 @@ export const completeLesson = async (lessonId: number) => {
  * Note: Progress is included in enrollment data
  */
 export const getCourseProgress = async (courseId: number) => {
-  const enrollment = await getEnrollmentByCourse(courseId);
-  return enrollment ? { progress: enrollment.progress } : { progress: 0 };
+  try {
+    const response = await getEnrollmentsByCourse(courseId, 0, 1);
+    const enrollment = response.content.length > 0 ? response.content[0] : null;
+    return enrollment ? { progress: enrollment.progress } : { progress: 0 };
+  } catch (error) {
+    return { progress: 0 };
+  }
 };

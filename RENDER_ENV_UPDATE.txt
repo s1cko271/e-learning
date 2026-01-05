@@ -1,6 +1,0 @@
-ALLOWED_ORIGINS=https://e-learning-3yk718cx4-s1cko271s-projects.vercel.app,http://localhost:3000
-VNPAY_RETURN_URL=https://e-learning-3yk718cx4-s1cko271s-projects.vercel.app/payment/vnpay-return
-VNPAY_IPN_URL=https://e-learning-backend-hchr.onrender.com/api/v1/vnpay/ipn
-CERTIFICATE_BASE_URL=https://e-learning-backend-hchr.onrender.com/certificates
-AVATAR_BASE_URL=https://e-learning-backend-hchr.onrender.com/api/files/avatars
-
