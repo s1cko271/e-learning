@@ -96,21 +96,38 @@ public class CloudStorageService {
             params.put("resource_type", "video");
             // Thêm timeout và chunk size cho video lớn
             params.put("chunk_size", 6000000); // 6MB chunks
-            params.put("timeout", 60000); // 60 seconds timeout
+            params.put("timeout", 120000); // 120 seconds timeout (tăng timeout cho video lớn)
             
             if (publicId != null && !publicId.isEmpty()) {
                 params.put("public_id", publicId);
             }
             
+            logger.info("Starting Cloudinary video upload: folder={}, publicId={}, size={} bytes", folder, publicId, file.getSize());
+            
             // Upload từ InputStream thay vì đọc toàn bộ vào memory
             Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getInputStream(), params);
+            
+            if (uploadResult == null || !uploadResult.containsKey("secure_url")) {
+                logger.error("Cloudinary upload returned null or missing secure_url");
+                throw new IOException("Cloudinary upload failed: no secure_url in response");
+            }
+            
             String secureUrl = (String) uploadResult.get("secure_url");
             
-            logger.info("Video uploaded to Cloudinary: {} (size: {} bytes)", secureUrl, file.getSize());
+            if (secureUrl == null || secureUrl.isEmpty()) {
+                logger.error("Cloudinary upload returned empty secure_url");
+                throw new IOException("Cloudinary upload failed: empty secure_url");
+            }
+            
+            logger.info("Video uploaded successfully to Cloudinary: {} (size: {} bytes)", secureUrl, file.getSize());
             return secureUrl;
             
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.error("Error uploading video to Cloudinary: {}", e.getMessage(), e);
+            // Log full stack trace
+            if (e.getCause() != null) {
+                logger.error("Caused by: {}", e.getCause().getMessage(), e.getCause());
+            }
             throw new IOException("Failed to upload video to Cloudinary: " + e.getMessage(), e);
         }
     }

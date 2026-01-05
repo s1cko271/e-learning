@@ -236,15 +236,29 @@ public class FileStorageService {
         if (cloudStorageService.isEnabled()) {
             try {
                 String publicId = "lessons/videos/" + fileName.replace(fileExtension, "");
+                logger.info("Attempting to upload video to Cloudinary: {} (size: {} bytes)", fileName, file.getSize());
                 String cloudUrl = cloudStorageService.uploadVideo(file, "lessons/videos", publicId);
-                logger.info("Video uploaded to Cloudinary: {}", cloudUrl);
-                return cloudUrl;
+                logger.info("Video uploaded successfully to Cloudinary: {}", cloudUrl);
+                // Đảm bảo URL là Cloudinary URL, không phải local URL
+                if (cloudUrl != null && cloudUrl.contains("cloudinary.com")) {
+                    return cloudUrl;
+                } else {
+                    logger.error("Cloudinary returned invalid URL: {}", cloudUrl);
+                    throw new RuntimeException("Cloudinary upload returned invalid URL");
+                }
             } catch (Exception e) {
-                logger.warn("Failed to upload to Cloudinary, falling back to local storage: {}", e.getMessage());
+                logger.error("Failed to upload video to Cloudinary. Error: {}", e.getMessage(), e);
+                // Log stack trace for debugging
+                e.printStackTrace();
+                // Nếu Cloudinary fail, không fallback về local vì Render có ephemeral filesystem
+                // Thay vào đó, throw exception để user biết
+                throw new RuntimeException("Failed to upload video to Cloudinary. Please check Cloudinary configuration and try again. Error: " + e.getMessage(), e);
             }
+        } else {
+            logger.info("Cloudinary is not enabled, using local storage for video: {}", fileName);
         }
 
-        // Fallback to local storage
+        // Fallback to local storage (chỉ khi Cloudinary không enabled)
         try {
             Path targetLocation = this.lessonVideoStorageLocation.resolve(fileName);
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
