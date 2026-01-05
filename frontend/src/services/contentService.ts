@@ -215,17 +215,45 @@ export const uploadLessonVideo = async (
   file: File,
   durationInSeconds?: number
 ): Promise<string> => {
-  const formData = new FormData();
-  formData.append('file', file);
-  if (durationInSeconds !== undefined && durationInSeconds > 0) {
-    formData.append('durationInSeconds', durationInSeconds.toString());
+  try {
+    console.log('Uploading video to backend:', {
+      courseId,
+      chapterId,
+      lessonId,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      durationInSeconds
+    });
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    if (durationInSeconds !== undefined && durationInSeconds > 0) {
+      formData.append('durationInSeconds', durationInSeconds.toString());
+    }
+    
+    const response = await apiClient.post<{ videoUrl: string }>(
+      `/v1/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}/upload-video`, 
+      formData,
+      { timeout: 600000 } // 10 minutes timeout for large videos
+    );
+    
+    console.log('Video upload response:', {
+      videoUrl: response.data.videoUrl,
+      status: response.status
+    });
+    
+    return response.data.videoUrl;
+  } catch (error: any) {
+    console.error('Video upload error details:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      url: error.config?.url
+    });
+    throw error;
   }
-  const response = await apiClient.post<{ videoUrl: string }>(
-    `/v1/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}/upload-video`, 
-    formData,
-    { timeout: 600000 } // 10 minutes timeout for large videos
-  );
-  return response.data.videoUrl;
 };
 
 /**
@@ -288,14 +316,40 @@ export const extractYouTubeDuration = async (courseId: number, youtubeUrl: strin
  * Upload document file for a lesson
  */
 export const uploadLessonDocument = async (courseId: number, chapterId: number, lessonId: number, file: File): Promise<string> => {
-  const formData = new FormData();
-  formData.append('file', file);
-  const response = await apiClient.post<{ documentUrl: string }>(
-    `/v1/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}/upload-document`, 
-    formData,
-    { timeout: 120000 } // 2 minutes timeout for documents
-  );
-  return response.data.documentUrl;
+  try {
+    console.log('Uploading document to backend:', {
+      courseId,
+      chapterId,
+      lessonId,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type
+    });
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post<{ documentUrl: string }>(
+      `/v1/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}/upload-document`, 
+      formData,
+      { timeout: 120000 } // 2 minutes timeout for documents
+    );
+    
+    console.log('Document upload response:', {
+      documentUrl: response.data.documentUrl,
+      status: response.status
+    });
+    
+    return response.data.documentUrl;
+  } catch (error: any) {
+    console.error('Document upload error details:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      url: error.config?.url
+    });
+    throw error;
+  }
 };
 
 /**
