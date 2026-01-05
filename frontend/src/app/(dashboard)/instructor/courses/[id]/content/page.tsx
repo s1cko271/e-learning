@@ -123,27 +123,40 @@ export default function CourseContentPage() {
         try {
           console.log('Uploading video:', { courseId, chapterId, lessonId: createdLesson.id, fileName: videoFile.name, fileSize: videoFile.size });
           
-          // Extract duration from video file
+          // Tự động extract và làm tròn duration từ video file
           let durationInSeconds: number | undefined;
           try {
             durationInSeconds = await extractVideoDuration(videoFile);
             console.log('Extracted video duration:', durationInSeconds, 'seconds');
+            
+            // Nếu data.durationInMinutes chưa được set (từ auto-fill), cập nhật lại
+            if (durationInSeconds && (!data.durationInMinutes || data.durationInMinutes === 0)) {
+              data.durationInMinutes = roundDurationToMinutes(durationInSeconds);
+              console.log('Auto-calculated duration:', data.durationInMinutes, 'minutes');
+            }
           } catch (err) {
             console.warn('Failed to extract video duration:', err);
           }
           
           const videoUrl = await uploadLessonVideo(Number(courseId), chapterId, createdLesson.id, videoFile, durationInSeconds);
           console.log('Video uploaded successfully:', videoUrl);
-          // Step 3: Update lesson with the video URL
+          // Step 3: Update lesson with the video URL and auto-calculated duration
           await updateLesson(Number(courseId), chapterId, createdLesson.id, {
             ...data,
             videoUrl,
+            durationInMinutes: data.durationInMinutes, // Sử dụng duration đã được tính tự động
           });
         } catch (uploadError: any) {
           console.error('Video upload failed:', uploadError);
           const errorMessage = uploadError.response?.data?.message || uploadError.message || 'Lỗi không xác định';
           throw new Error(`Bài học đã tạo nhưng upload video thất bại: ${errorMessage}`);
         }
+      }
+      
+      // Nếu là YouTube URL, backend sẽ tự động extract duration khi update
+      if (data.videoUrl && isYouTubeUrl(data.videoUrl) && createdLesson.id) {
+        // Backend sẽ tự động tính duration từ YouTube API khi update
+        // Không cần làm gì ở đây, backend đã xử lý trong ContentService.calculateDuration()
       }
       
       if (documentFile && createdLesson.id) {
